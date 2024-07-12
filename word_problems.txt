@@ -1,0 +1,23 @@
+This file contains the word problems.
+Each word problem follows the following format:
+[Name]
+[Content]
+[Number of parameters]
+
+Add '!' (without quotation) to the left of the name to signal the program.
+The content should mark the parameters by @ so that they can be replaced by appropriate values.
+Every element should be on its own line, and there should be no line between the elements.
+You may use LaTeX text formating for the content.
+
+#### 3D Shapes ####
+!CylinderSAV
+A cylinder has the radius @ cm and the height @ cm. What is its \textbf{\underline{surface area}} and \textbf{\underline{volume}}?
+2
+
+!RectPrismSAV
+A rectangular prism has the length @ cm, the width @ cm, and the height @ cm. What is its \textbf{\underline{surface area}} and \textbf{\underline{volume}}?
+3
+
+!CubeSAV
+A cube has the side length @ cm. What is its \textbf{\underline{surface area}} and \textbf{\underline{volume}}?
+1

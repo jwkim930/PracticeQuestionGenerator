@@ -1,11 +1,9 @@
-from typing import List
-
 from pylatex import Command
 from pylatex.base_classes import LatexObject
 
 
 class BaseMathClass:
-    def get_latex(self) -> List[LatexObject, str, int, float]:
+    def get_latex(self) -> list[LatexObject, str, int, float]:
         """
         Returns the LaTeX representation of the object in a list.
         """

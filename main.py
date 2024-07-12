@@ -7,12 +7,13 @@ import classes.problems as problems
 from classes.environments import Multicols
 
 
-probs = [problems.FractionAddition(15, (1, 10), (2, 10)),
-         problems.FractionAddition(15, (1, 10), (2, 10), neg=True)]
-prob_name = "Fraction Addition"
-prob_inst = ""
-prob_cols = 3
-mix_up = True   # If True, questions are generated in mixed order.
+probs = [problems.WordProblem(1, "CylinderSAV", [(3, 8), (5, 10)]),
+         problems.WordProblem(2, "RectPrismSAV", [(3, 8), (3, 8), (3, 8)]),
+         problems.WordProblem(3, "CubeSAV", [(3, 8)])]
+prob_name = "3D Shapes"
+prob_inst = "Answer the following problems. Show all your work and include units in the final answer."
+prob_cols = 1
+mix_up = False   # If True, questions are generated in mixed order.
 
 
 doc = Document(geometry_options={"paper": "letterpaper", "margin": "0.8in"})
