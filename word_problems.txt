@@ -21,3 +21,7 @@ A rectangular prism has the length @ cm, the width @ cm, and the height @ cm. Wh
 !CubeSAV
 A cube has the side length @ cm. What is its \textbf{\underline{surface area}} and \textbf{\underline{volume}}?
 1
+
+!TriPrismSAV
+A triangular prism has the base length @ cm, base height @ cm, and the prism height @ cm. What is its \textbf{\underline{surface area}} and \textbf{\underline{volume}}?
+3
