@@ -1,22 +1,22 @@
 import os
 
-from pylatex import Document, Command, Subsection, VerticalSpace
+from pylatex import Document, Command, Subsection, VerticalSpace, Package
+from pylatex import MiniPage
 from random import randint
 
 import classes.problems as problems
 from classes.environments import Multicols
 
 
-probs = [problems.WordProblem(2, "CylinderSAV", [(3, 8), (5, 10)]),
-         problems.WordProblem(2, "RectPrismSAV", [(3, 8), (3, 8), (3, 8)]),
-         problems.WordProblem(2, "TriPrismSAV", [(3, 8), (4, 8), (5, 10)])]
-prob_name = "3D Shapes"
-prob_inst = "Answer the following problems. Show all your work and include units in the final answer."
+probs = [problems.LinearGraphingProblem(10, (-4, 4), (-4, 4))]
+prob_name = "Linear Function Graphing"
+prob_inst = "Graph the given functions. Make sure to draw the coordinate axes as well."
 prob_cols = 1
-mix_up = True   # If True, questions are generated in mixed order.
+mix_up = False   # If True, questions are generated in mixed order.
 
 
 doc = Document(geometry_options={"paper": "letterpaper", "margin": "0.8in"})
+doc.packages.append(Package("graphicx"))
 doc.preamble.append(Command("title", prob_name + " Practice"))
 doc.preamble.append(Command("date", ""))
 doc.append(Command("maketitle"))
@@ -31,8 +31,9 @@ def print_problems():
         probi = randint(0, len(probs) - 1) if mix_up else 0
         prob = probs[probi]
         with doc.create(Subsection("Q" + str(q), False)):
-            doc.append(prob.get_problem())
-            doc.append(VerticalSpace(prob.vspace))
+            with doc.create(MiniPage()):
+                doc.append(prob.get_problem())
+                doc.append(VerticalSpace(prob.vspace))
         if prob.num_quest == 0:
             probs.pop(probi)
 

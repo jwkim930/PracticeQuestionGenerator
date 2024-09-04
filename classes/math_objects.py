@@ -26,7 +26,7 @@ class Fraction(BaseMathClass):
         self.sign = sign
         self.big = big
 
-    def get_latex(self):
+    def get_latex(self) -> list:
         if self.sign == -1:
             return [Command("left("),
                     '-',

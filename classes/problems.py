@@ -16,12 +16,12 @@ class ProblemBase:
         self.num_quest = num_quest
         self.vspace = vspace
 
-    def get_problem(self) -> Math | Alignat | str:
+    def get_problem(self) -> Math | Alignat | str | NoEscape:
         """
         Returns a practice problem for LaTeX math/align environment.
         Decrements num_quest in the object.
         """
-        pass
+        pass   # child class should implement this
 
 
 class FractionBinaryOperation(ProblemBase):
@@ -123,3 +123,59 @@ class WordProblem(ProblemBase):
 
         self.num_quest -= 1
         return NoEscape(result)
+
+
+class GraphingProblem(ProblemBase):
+    def __init__(self, num_quest: int):
+        """
+        Initializes a graphing problem.
+        It requires graphing_grid.png in the document_output folder.
+        """
+        super().__init__(num_quest, '0cm')
+
+    def get_random_function(self) -> str:
+        """
+        Returns a function with randomized parameters.
+        """
+        pass   # child class should implement this
+
+    def get_problem(self):
+        result = NoEscape('$f(x)=' + self.get_random_function() + '$\n\n' \
+               + r'\vspace{2em}' + '\n\n' \
+               + r'\includegraphics[width=0.3\linewidth]{graphing_grid.png}')
+
+        self.num_quest -= 1
+        return result
+
+
+class LinearGraphingProblem(GraphingProblem):
+    def __init__(self, num_quest: int, a_range: tuple[int, int], b_range: tuple[int, int]):
+        """
+        Initializes a graphing problem for a linear function.
+        The produced function will be in the form ax + b.
+        It requires graphing_grid.png in the document_output folder.
+
+        :param a_range: The range for the coefficient, (begin, end) inclusive. 0 is automatically excluded.
+        :param b_range: The range for the constant, (begin, end) inclusive.
+        """
+        super().__init__(num_quest)
+        self.a_range = a_range
+        self.b_range = b_range
+
+    def get_random_function(self):
+        a = randint(self.a_range[0], self.a_range[1])
+        while a == 0:
+            a = randint(self.a_range[0], self.a_range[1])
+        b = randint(self.b_range[0], self.b_range[1])
+        a_str = ''
+        if a == -1:
+            a_str = '-'
+        elif a != 1:
+            a_str = str(a)
+        b_str = ''
+        if b < 0:
+            b_str = '-' + str(-b)
+        elif b != 0:
+            b_str = '+' + str(b)
+
+        return a_str + 'x' + b_str
