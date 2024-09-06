@@ -5,16 +5,22 @@ from pylatex import MiniPage
 from random import randint
 
 import classes.problems as problems
+import classes.problem_preset as preset
 from classes.environments import Multicols
 
 
-probs = [problems.LinearGraphingProblem(10, (-4, 4), (-4, 4))]
-prob_name = "Linear Function Graphing"
-prob_inst = "Graph the given functions. Make sure to draw the coordinate axes as well."
+# Parameters (edit here)
+probs = [problems.WordProblem(3, '4cm', 'RectangleArea', [(2, 12), (2, 12)]),
+         problems.WordProblem(3, '4cm', 'TriangleArea', [(4, 8), (2, 6)]),
+         problems.WordProblem(3, '4cm', 'CircleCircArea', [(2, 8)]),
+         problems.WordProblem(3, '4cm', 'ParalleloArea', [(4, 8), (2, 6)])]
+prob_name = "2D Shapes"
+prob_inst = "Answer the following. Remember to write the appropriate units."
 prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 
 
+# Don't edit below
 doc = Document(geometry_options={"paper": "letterpaper", "margin": "0.8in"})
 doc.packages.append(Package("graphicx"))
 doc.preamble.append(Command("title", prob_name + " Practice"))

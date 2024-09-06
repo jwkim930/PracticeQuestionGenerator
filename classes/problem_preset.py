@@ -1,0 +1,24 @@
+# Pre-made problems with appropriate ranges
+# Just set num_quest as desired
+
+import classes.problems as problems
+
+
+class RectangleAreaProblem(problems.WordProblem):
+    def __init__(self, num_quest: int):
+        super().__init__(num_quest, '4cm', 'RectangleArea', [(2, 12), (2, 12)])
+
+
+class TriangleAreaProblem(problems.WordProblem):
+    def __init__(self, num_quest: int):
+        super().__init__(num_quest, '4cm', 'TriangleArea', [(4, 8), (2, 6)])
+
+
+class CircleCircAreaProblem(problems.WordProblem):
+    def __init__(self, num_quest: int):
+        super().__init__(num_quest, '4cm', 'CircleCircArea', [(2, 8)])
+
+
+class ParalleloAreaProblem(problems.WordProblem):
+    def __init__(self, num_quest: int):
+        super().__init__(num_quest, '4cm', 'ParalleloArea', [(4, 8), (2, 6)])

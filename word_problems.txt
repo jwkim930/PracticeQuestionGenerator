@@ -9,7 +9,31 @@ The content should mark the parameters by @ so that they can be replaced by appr
 Every element should be on its own line, and there should be no line between the elements.
 You may use LaTeX text formating for the content.
 
+#### 2D Shapes ####
+
+!RectangleArea
+A rectangle has the width @ cm and the length @ cm. What is its \textbf{\underline{area}}?
+2
+
+!SquareArea
+A square has the side length @ cm. What is its \textbf{\underline{area}}?
+2
+
+!TriangleArea
+A triangle has the width @ cm and the height @ cm. What is its \textbf{\underline{area}}?
+2
+
+!ParalleloArea
+A parallelogram has the base @ cm and the height @ cm. What is its \textbf{\underline{area}}?
+2
+
+!CircleCircArea
+What is the \textbf{\underline{circumference}} and the area \textbf{\underline{area}} of a circle with the radius @ cm?
+1
+
+
 #### 3D Shapes ####
+
 !CylinderSAV
 A cylinder has the radius @ cm and the height @ cm. What is its \textbf{\underline{surface area}} and \textbf{\underline{volume}}?
 2

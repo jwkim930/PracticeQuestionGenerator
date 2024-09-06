@@ -11,7 +11,7 @@ class ProblemBase:
         """
         Initializes a problem.
         :param num_quest: The number of questions to be generated.
-        :param vspace: The minimum vertical space to be added between problems.
+        :param vspace: The minimum vertical space to be added below each problem.
         """
         self.num_quest = num_quest
         self.vspace = vspace
@@ -87,16 +87,59 @@ class FractionAddition(FractionBinaryOperation):
         """
         super().__init__(num_quest, '+', nrange, drange, no1, neg)
 
+class FractionSubtraction(FractionBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], drange: tuple[int, int],
+                 no1=True, neg=False):
+        """
+        Initializes a fraction subtraction problem.
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for numerator, (begin, end) inclusive.
+        :param drange: The range for denominator, (begin, end) inclusive.
+        :param no1: If True, the numerator and the denominator are always different.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, '-', nrange, drange, no1, neg)
+
+
+class FractionMultiplication(FractionBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], drange: tuple[int, int],
+                 no1=True, neg=False):
+        """
+        Initializes a fraction subtraction problem.
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for numerator, (begin, end) inclusive.
+        :param drange: The range for denominator, (begin, end) inclusive.
+        :param no1: If True, the numerator and the denominator are always different.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, Command('times'), nrange, drange, no1, neg)
+
+
+class FractionDivision(FractionBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], drange: tuple[int, int],
+                 no1=True, neg=False):
+        """
+        Initializes a fraction subtraction problem.
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for numerator, (begin, end) inclusive.
+        :param drange: The range for denominator, (begin, end) inclusive.
+        :param no1: If True, the numerator and the denominator are always different.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, Command('div'), nrange, drange, no1, neg)
+
 
 class WordProblem(ProblemBase):
-    def __init__(self, num_quest: int, name: str, ranges: list[tuple[int, int]]):
+    def __init__(self, num_quest: int, vspace: str, name: str, ranges: list[tuple[int, int]]):
         """
         Initializes a word problem. Make sure word_problems.txt is in the same directory as where this was called.
         :param num_quest: The number of questions to be generated.
+        :param vspace: The minimum vertical space to be added below each problem.
         :param name: The name of the problem to be used to choose problems.
         :param ranges: The ranges of values to be used for problem parameters.
+                       They should be in the order the placeholders appear in the problem.
         """
-        super().__init__(num_quest, '6cm')
+        super().__init__(num_quest, vspace)
         self.ranges = ranges
         with open("word_problems.txt", 'r') as f:
             line = f.readline()
@@ -155,6 +198,7 @@ class LinearGraphingProblem(GraphingProblem):
         The produced function will be in the form ax + b.
         It requires graphing_grid.png in the document_output folder.
 
+        :param num_quest: The number of questions to be generated.
         :param a_range: The range for the coefficient, (begin, end) inclusive. 0 is automatically excluded.
         :param b_range: The range for the constant, (begin, end) inclusive.
         """
