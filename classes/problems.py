@@ -1,4 +1,4 @@
-from random import randint
+from random import randint, choice
 
 from pylatex import Math, Alignat, Command
 from pylatex.utils import NoEscape
@@ -223,3 +223,65 @@ class LinearGraphingProblem(GraphingProblem):
             b_str = '+' + str(b)
 
         return a_str + 'x' + b_str
+
+
+class SquareRootProblem(ProblemBase):
+    def __init__(self, num_quest: int, operand_range: tuple[int, int], frac=False, no_duplicate=False):
+        """
+        Initializes a square root problem, which involves evaluating the square root of a perfect square.
+        The operand can either be a non-negative integer or a fraction of non-negative perfect square integers.
+
+        :param num_quest: The number of questions to be generated.
+        :param operand_range: The range of the square root of the operand, (begin, end) inclusive.
+                              For example, (1, 3) allows the operands 1, 4, and 9.
+                              If frac is True, this determines the range used for the numerator and
+                              the denominator.
+        :param frac: If False, the operand will be a non-negative integer.
+                     If True, the operand will be a fraction of non-negative integer.
+                     When True, operand_range cannot include 0.
+        :param no_duplicate: If True, no duplicate operand will be generated.
+                             There should be enough numbers in operand_range to generate all the necessary questions.
+                             Not recommended with frac since a number appearing in the numerator stops
+                             it from appearing in the denominator too, so the numbers will run out
+                             twice as fast as with integer operands.
+        """
+        super().__init__(num_quest, "0cm")
+
+        # reject non-integer range
+        if operand_range[0] % 1 != 0 or operand_range[0] % 1 != 0:
+            raise ValueError("Operand range must be integers")
+        # reject negative range
+        if operand_range[0] < 0 or operand_range[1] < 0:
+            raise ValueError("Operand range must be non-negative")
+        # reject zero with fraction
+        if frac and operand_range[0] == 0:
+            raise ValueError("Operand range cannot include 0 for fractions")
+        # make sure there are enough numbers
+        if operand_range[0] > operand_range[1]:
+            raise ValueError("Operand range contains no integer")
+        if no_duplicate:
+            num_candidates = operand_range[1] - operand_range[0] + 1
+            if (not frac and num_candidates < num_quest) or (frac and num_candidates < 2 * num_quest):
+                raise ValueError(f"Operand range is not big enough to generate {num_quest} questions")
+
+        self.operand_candidates = list(range(operand_range[0], operand_range[1] + 1))
+        self.frac = frac
+        self.no_duplicate = no_duplicate
+
+    def get_problem(self) -> Math:
+        if not self.frac:
+            chosen = choice(self.operand_candidates)
+            if self.no_duplicate:
+                self.operand_candidates.remove(chosen)
+            result = Math(inline=True, data=[Command('sqrt', chosen**2)])
+        else:
+            num = choice(self.operand_candidates)
+            if self.no_duplicate:
+                self.operand_candidates.remove(num)
+            denom = choice(self.operand_candidates)
+            if self.no_duplicate:
+                self.operand_candidates.remove(denom)
+            result = Math(inline=True, data=[Command('sqrt', Fraction(num**2, denom**2).get_latex())])
+
+        self.num_quest -= 1
+        return result

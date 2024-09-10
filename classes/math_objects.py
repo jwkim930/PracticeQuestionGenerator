@@ -1,3 +1,4 @@
+from numpy.f2py.symbolic import as_numer_denom
 from pylatex import Command
 from pylatex.base_classes import LatexObject
 
@@ -34,3 +35,15 @@ class Fraction(BaseMathClass):
                     Command("right)")]
         else:
             return [Command("dfrac" if self.big else "frac", [self.num, self.denom])]
+
+    def __eq__(self, other) -> bool:
+        """
+        Checks if this fraction is equal to another.
+        For example, 4/5 is equal to 4/5, but 4/5 is not equal to 8/9 or 8/10.
+        This ignores the attribute big.
+
+        :return: True if the two are the same fraction, false otherwise.
+        """
+        if not isinstance(other, Fraction):
+            return False
+        return self.num == other.num and self.denom == other.denom and self.sign == other.sign
