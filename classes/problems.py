@@ -226,7 +226,7 @@ class LinearGraphingProblem(GraphingProblem):
 
 
 class SquareRootProblem(ProblemBase):
-    def __init__(self, num_quest: int, operand_range: tuple[int, int], frac=False, no_duplicate=False):
+    def __init__(self, num_quest: int, operand_range: tuple[int, int], frac=False, no_duplicate=True):
         """
         Initializes a square root problem, which involves evaluating the square root of a perfect square.
         The operand can either be a non-negative integer or a fraction of non-negative perfect square integers.
@@ -241,7 +241,7 @@ class SquareRootProblem(ProblemBase):
                      When True, operand_range cannot include 0.
         :param no_duplicate: If True, no duplicate operand will be generated.
                              There should be enough numbers in operand_range to generate all the necessary questions.
-                             Not recommended with frac since a number appearing in the numerator stops
+                             Be careful using this with frac since a number appearing in the numerator stops
                              it from appearing in the denominator too, so the numbers will run out
                              twice as fast as with integer operands.
         """
@@ -256,24 +256,21 @@ class SquareRootProblem(ProblemBase):
         # reject zero with fraction
         if frac and operand_range[0] == 0:
             raise ValueError("Operand range cannot include 0 for fractions")
-        # make sure there are enough numbers
-        if operand_range[0] > operand_range[1]:
-            raise ValueError("Operand range contains no integer")
-        if no_duplicate:
-            num_candidates = operand_range[1] - operand_range[0] + 1
-            if (not frac and num_candidates < num_quest) or (frac and num_candidates < 2 * num_quest):
-                raise ValueError(f"Operand range is not big enough to generate {num_quest} questions")
 
-        self.operand_candidates = list(range(operand_range[0], operand_range[1] + 1))
+        self.operand_candidates = [n**2 for n in range(operand_range[0], operand_range[1] + 1)]
         self.frac = frac
         self.no_duplicate = no_duplicate
+        # make sure there are enough numbers
+        if no_duplicate:
+            if (not frac and len(self.operand_candidates) < num_quest) or (frac and len(self.operand_candidates) < 2 * num_quest):
+                raise ValueError(f"Operand range is not big enough to generate {num_quest} questions")
 
     def get_problem(self) -> Math:
         if not self.frac:
             chosen = choice(self.operand_candidates)
             if self.no_duplicate:
                 self.operand_candidates.remove(chosen)
-            result = Math(inline=True, data=[Command('sqrt', chosen**2)])
+            result = Math(inline=True, data=[Command('sqrt', chosen)])
         else:
             num = choice(self.operand_candidates)
             if self.no_duplicate:
@@ -281,7 +278,48 @@ class SquareRootProblem(ProblemBase):
             denom = choice(self.operand_candidates)
             if self.no_duplicate:
                 self.operand_candidates.remove(denom)
-            result = Math(inline=True, data=[Command('sqrt', Fraction(num**2, denom**2).get_latex())])
+            result = Math(inline=True, data=[Command('sqrt', Fraction(num, denom).get_latex())])
 
         self.num_quest -= 1
         return result
+
+class SquareRootDecimalProblem(SquareRootProblem):
+    def __init__(self, num_quest: int, base_range: tuple[int, int], offset_range: tuple[int, int], no_duplicate=True):
+        """
+        Initializes a square root problem with a decimal operand.
+
+        The operand is generated based on two parameters: the number base (b) and the offset exponent (o).
+        The generation uses the following formula:
+
+        b**2 / 100**o
+
+        Here are some examples to illustrate how this works:
+        * b = 3 and o = 1 -> 0.09
+        * b = 11 and o = 1 -> 1.21
+        * b = 5 and o = 2 -> 0.0025
+
+        :param num_quest: The number of questions to be generated.
+        :param base_range: The range for the number base, (begin, end) inclusive.
+                           The bounds must be positive (non-zero) integers.
+        :param offset_range: The range for the offset exponent, (begin, end) inclusive.
+                             The bounds must be positive (non-zero) integers.
+        :param no_duplicate: If True, no duplicate operand will be generated.
+                             There should be enough numbers in operand_range to generate all the necessary questions.
+        """
+        # set operand_range so that nothing is generated
+        # set no_duplicate to False temporarily to avoid num_quest check
+        super().__init__(num_quest, (1, 0), False, False)
+        self.no_duplicate = no_duplicate
+        if base_range[0] % 1 != 0 or base_range[1] % 1 != 0 or offset_range[0] % 1 != 0 or offset_range[1] % 1 != 0:
+            raise ValueError("The ranges must be integers")
+        if base_range[0] <= 0 or offset_range[0] <= 0:
+            raise ValueError("The ranges must be positive")
+
+        # generate all candidates
+        self.operand_candidates = []
+        for b in range(base_range[0], base_range[1] + 1):
+            for o in range(offset_range[0], offset_range[1] + 1):
+                self.operand_candidates.append(b**2 / 100**o)
+
+        if no_duplicate and len(self.operand_candidates) < num_quest:
+            raise ValueError("The given ranges do not generate enough questions")

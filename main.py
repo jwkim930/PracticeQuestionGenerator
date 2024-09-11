@@ -11,8 +11,9 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [problems.SquareRootProblem(5, (2, 6), no_duplicate=True),
-         problems.SquareRootProblem(2, (0, 1), no_duplicate=True),
-         problems.SquareRootProblem(5, (2, 15), frac=True, no_duplicate=True)]
+         problems.SquareRootProblem(5, (2, 15), frac=True, no_duplicate=True),
+         problems.SquareRootDecimalProblem(3, (2, 9), (1, 2), no_duplicate=True),
+         problems.SquareRootDecimalProblem(2, (11, 15), (1, 2), no_duplicate=True)]
 prob_name = "Square Root"
 prob_inst = "Compute the following square roots. You don't need to simplify the fractions."
 prob_cols = 2
