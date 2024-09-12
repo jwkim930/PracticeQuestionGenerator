@@ -10,13 +10,10 @@ from classes.environments import Multicols
 
 
 # Parameters (edit here)
-probs = [problems.SquareRootProblem(5, (2, 6), no_duplicate=True),
-         problems.SquareRootProblem(5, (2, 15), frac=True, no_duplicate=True),
-         problems.SquareRootDecimalProblem(3, (2, 9), (1, 2), no_duplicate=True),
-         problems.SquareRootDecimalProblem(2, (11, 15), (1, 2), no_duplicate=True)]
-prob_name = "Square Root"
-prob_inst = "Compute the following square roots. You don't need to simplify the fractions."
-prob_cols = 2
+probs = [problems.LinearRelationProblem(5, (2, 5), (2, 5), (-2, 2))]
+prob_name = "Linear Relation"
+prob_inst = "For each table, sketch the graph of the linear relation. Then write the equation of the linear relation."
+prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 
 
