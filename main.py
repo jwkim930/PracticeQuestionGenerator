@@ -10,7 +10,9 @@ from classes.environments import Multicols
 
 
 # Parameters (edit here)
-probs = [problems.IntegerBinaryOperation(5, '+', (2, 10))]
+probs = [problems.LinearRelationProblem(4, (-3, 3), (-2, 2)),
+         problems.LinearRelationProblem(1, (-3, 3), (-2, 2), (-2, 2)),
+         problems.LinearRelationProblem(1, (0, 0), (-2, 2), no_constant=False)]
 prob_name = "Linear Relation"
 prob_inst = "For each table, sketch the graph of the linear relation. Then write the equation of the linear relation."
 prob_cols = 1

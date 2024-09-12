@@ -22,3 +22,7 @@ class CircleCircAreaProblem(problems.WordProblem):
 class ParalleloAreaProblem(problems.WordProblem):
     def __init__(self, num_quest: int):
         super().__init__(num_quest, '4cm', 'ParalleloArea', [(4, 8), (2, 6)])
+
+linear_relation_mix = [problems.LinearRelationProblem(4, (-3, 3), (-2, 2)),
+                       problems.LinearRelationProblem(1, (-3, 3), (-2, 2), (-2, 2)),
+                       problems.LinearRelationProblem(1, (0, 0), (-2, 2), no_constant=False)]

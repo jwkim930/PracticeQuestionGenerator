@@ -377,7 +377,8 @@ class LinearRelationProblem(ProblemBase):
     def __init__(self, num_quest: int,
                  h_range: tuple[int | str, int | str] | tuple[int | str, int | str, int | str],
                  k_range: tuple[int | str, int | str] | tuple[int | str, int | str, int | str],
-                 x_range: tuple[int | str, int | str] | tuple[int | str, int | str, int | str]=(1, 5, 1)):
+                 x_range: tuple[int | str, int | str] | tuple[int | str, int | str, int | str]=(1, 5, 1),
+                 no_constant=True):
         """
         Initializes a problem that gives a table of x and y values
         and asks the student to sketch the graph of the relation
@@ -400,6 +401,7 @@ class LinearRelationProblem(ProblemBase):
         :param x_range: The range for the x-values in the table, (begin, end) inclusive.
                         Step can be omitted, in which case it's assumed to be 1.
                         The default is (1, 5, 1).
+        :param no_constant: If True, the slope is never 0.
         """
         super().__init__(num_quest, "0cm")
         # add default step if necessary
@@ -420,6 +422,9 @@ class LinearRelationProblem(ProblemBase):
 
         self.h_range = tuple(h_range)
         self.k_range = tuple(k_range)
+        self.no_constant = no_constant
+        if no_constant and h_range[0] == 0 and h_range[1] - h_range[0] < h_range[2]:
+            raise ValueError("The given h_range always produces a zero slope")
 
         # generate x-values
         self.x_values = []
@@ -435,6 +440,8 @@ class LinearRelationProblem(ProblemBase):
 
         # generate the parameters
         h = decimal_randrange(self.h_range[0], self.h_range[1], self.h_range[2])
+        while self.no_constant and h == 0:
+            h = decimal_randrange(self.h_range[0], self.h_range[1], self.h_range[2])
         k = decimal_randrange(self.k_range[0], self.k_range[1], self.k_range[2])
 
         # assemble the table of values
