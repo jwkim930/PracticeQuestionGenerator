@@ -1,13 +1,14 @@
 from random import randint, choice
 from decimal import Decimal
+from abc import ABC, abstractmethod
 
 from pylatex import Math, Alignat, Command, Tabular, MiniPage
 from pylatex.utils import NoEscape
 
-from classes.math_objects import Fraction
+from classes.math_objects import BaseMathClass, Fraction, Number
 
 
-class ProblemBase:
+class ProblemBase(ABC):
     def __init__(self, num_quest: int, vspace: str):
         """
         Initializes a problem.
@@ -17,6 +18,7 @@ class ProblemBase:
         self.num_quest = num_quest
         self.vspace = vspace
 
+    @abstractmethod
     def get_problem(self) -> Math | Alignat | NoEscape:
         """
         Returns a practice problem.
@@ -25,11 +27,70 @@ class ProblemBase:
         pass   # child class should implement this
 
 
-class FractionBinaryOperation(ProblemBase):
+class BinaryOperation(ProblemBase, ABC):
+    def __init__(self, num_quest: int, operand: str | Command, neg=False):
+        """
+        Initializes a binary operation problem.
+
+        :param num_quest: The number of questions to be generated.
+        :param operand: The operand to be used, such as + or \\times.
+        :param neg: neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "0cm")
+        self.operand = operand
+        self.neg = neg
+
+    @abstractmethod
+    def generator(self) -> BaseMathClass:
+        """
+        Randomly generates a non-negative operand.
+        """
+        pass   # child class should implement this
+
+    def generate_random_operands(self) -> tuple[BaseMathClass, BaseMathClass]:
+        """
+        Randomly generates two operands for the problem.
+        If neg is True, at least one of the operand will be negative.
+
+        :return: The two generated operands in a tuple.
+        """
+        ops = [self.generator() for _ in range(2)]
+        if self.neg:
+            neg_i = randint(0, 1)
+            other_i = 1 - neg_i
+            ops[neg_i] = -ops[neg_i]
+            if randint(0, 1) == 1:
+                ops[other_i] = -ops[other_i]
+        return ops[0], ops[1]
+
+    def get_problem(self) -> Math:
+        o1, o2 = self.generate_random_operands()
+        self.num_quest -= 1
+        return Math(inline=True, data=o1.get_latex() + [self.operand] + o2.get_latex() + ["="])
+
+class IntegerBinaryOperation(BinaryOperation):
+    def __init__(self, num_quest: int, operand: str | Command, orange: tuple[int, int], neg=False):
+        """
+        Initializes an integer binary operation problem.
+
+        :param num_quest: The number of questions to be generated.
+        :param operand: The operand to be used, such as + or \\times.
+        :param orange: The range for the operands, (begin, end) inclusive.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, operand, neg)
+        self.orange = orange
+
+    def generator(self) -> Number:
+        return Number(randint(self.orange[0], self.orange[1]))
+
+
+class FractionBinaryOperation(BinaryOperation):
     def __init__(self, num_quest: int, operand: str | Command, nrange: tuple[int, int], drange: tuple[int, int],
                  no1=True, neg=False):
         """
         Initializes a fraction binary operation problem.
+
         :param num_quest: The number of questions to be generated.
         :param operand: The operand to be used, such as + or \\times.
         :param nrange: The range for numerator, (begin, end) inclusive.
@@ -37,27 +98,13 @@ class FractionBinaryOperation(ProblemBase):
         :param no1: If True, the numerator and the denominator are always different.
         :param neg: If True, at least one of the operands will be negative.
         """
-        super().__init__(num_quest,
-                         "0cm")
-        self.operand = operand
+        super().__init__(num_quest,operand, neg)
         self.nrange = nrange
         self.drange = drange
         self.no1 = no1
-        self.neg = neg
 
-    def get_problem(self) -> Math:
-        f1 = self.generate_random_fraction(self.nrange, self.drange, self.no1)
-        f2 = self.generate_random_fraction(self.nrange, self.drange, self.no1)
-        if self.neg:
-            fracs = [f1, f2]
-            neg_i = randint(0, 1)
-            other_i = 1 - neg_i
-            fracs[neg_i].sign = -1
-            if randint(0, 1) == 1:
-                fracs[other_i].sign = -1
-
-        self.num_quest -= 1
-        return Math(inline=True, data=f1.get_latex() + [self.operand] + f2.get_latex() + ["="])
+    def generator(self) -> Fraction:
+        return self.generate_random_fraction(self.nrange, self.drange, self.no1)
 
     @staticmethod
     def generate_random_fraction(nrange, drange, no1=True) -> Fraction:
@@ -169,7 +216,7 @@ class WordProblem(ProblemBase):
         return NoEscape(result)
 
 
-class GraphingProblem(ProblemBase):
+class GraphingProblem(ProblemBase, ABC):
     def __init__(self, num_quest: int):
         """
         Initializes a graphing problem.
@@ -177,6 +224,7 @@ class GraphingProblem(ProblemBase):
         """
         super().__init__(num_quest, '0cm')
 
+    @abstractmethod
     def get_random_function(self) -> str:
         """
         Returns a function with randomized parameters.
