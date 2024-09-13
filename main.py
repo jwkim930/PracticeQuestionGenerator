@@ -10,11 +10,12 @@ from classes.environments import Multicols
 
 
 # Parameters (edit here)
-probs = [problems.LinearRelationProblem(4, (-3, 3), (-2, 2)),
-         problems.LinearRelationProblem(1, (-3, 3), (-2, 2), (-2, 2)),
-         problems.LinearRelationProblem(1, (0, 0), (-2, 2), no_constant=False)]
-prob_name = "Linear Relation"
-prob_inst = "For each table, sketch the graph of the linear relation. Then write the equation of the linear relation."
+probs = [problems.EquationSingleOperation(1, (-5, 5), 'add'),
+         problems.EquationSingleOperation(1, (-5, 5), 'sub'),
+         problems.EquationSingleOperation(1, (-5, 5), 'mul'),
+         problems.EquationSingleOperation(1, (-5, 5), 'div')]
+prob_name = "Various more"
+prob_inst = "Write the following expression as a fraction."
 prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 

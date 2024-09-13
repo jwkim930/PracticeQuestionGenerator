@@ -3,6 +3,7 @@ from decimal import Decimal
 from abc import ABC, abstractmethod
 
 from pylatex import Math, Alignat, Command, Tabular, MiniPage
+from pylatex.base_classes import LatexObject
 from pylatex.utils import NoEscape
 
 from classes.math_objects import BaseMathClass, Fraction, Number
@@ -67,6 +68,7 @@ class BinaryOperation(ProblemBase, ABC):
         o1, o2 = self.generate_random_operands()
         self.num_quest -= 1
         return Math(inline=True, data=o1.get_latex() + [self.operand] + o2.get_latex() + ["="])
+
 
 class IntegerBinaryOperation(BinaryOperation):
     def __init__(self, num_quest: int, operand: str | Command, orange: tuple[int, int], neg=False):
@@ -134,6 +136,7 @@ class FractionAddition(FractionBinaryOperation):
         :param neg: If True, at least one of the operands will be negative.
         """
         super().__init__(num_quest, '+', nrange, drange, no1, neg)
+
 
 class FractionSubtraction(FractionBinaryOperation):
     def __init__(self, num_quest: int, nrange: tuple[int, int], drange: tuple[int, int],
@@ -332,6 +335,7 @@ class SquareRootProblem(ProblemBase):
         self.num_quest -= 1
         return result
 
+
 class SquareRootDecimalProblem(SquareRootProblem):
     def __init__(self, num_quest: int, base_range: tuple[int, int], offset_range: tuple[int, int], no_duplicate=True):
         """
@@ -372,6 +376,7 @@ class SquareRootDecimalProblem(SquareRootProblem):
 
         if no_duplicate and len(self.operand_candidates) < num_quest:
             raise ValueError("The given ranges do not generate enough questions")
+
 
 class LinearRelationProblem(ProblemBase):
     def __init__(self, num_quest: int,
@@ -457,3 +462,63 @@ class LinearRelationProblem(ProblemBase):
 
         self.num_quest -= 1
         return NoEscape(xy_page.dumps() + graph_page.dumps())
+
+
+class EquationSingleOperation(ProblemBase):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *operations: str):
+        """
+        Initializes an equation solving problem that requires one arithmetic operation to solve.
+        The operation can be addition, subtraction, multiplication, and division.
+        Note that division is always represented as a fraction.
+        For example, if operations=('add', 'mul'), then the following equations (and others) can be generated:
+
+        x + 5 = 13
+        5x = 3
+
+        However, the following equations cannot be generated:
+
+        x - (-5) = 13
+        \frac{x}{0.2} = 3
+
+        The variable may be on the left or the right side of the equation,
+        which is randomly determined by an equal chance.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
+        :param operations: The operations that are allowed to be used.
+                           The options are add, sub, mul, div.
+                           By default, anything is allowed.
+        """
+        if any(o not in ['add', 'sub', 'mul', 'div'] for o in operations):
+            raise ValueError(f"One of {operations} is an invalid operation")
+        zero_only = nrange[1] - nrange[0] <= 0 and nrange[0] == 0
+        if 'div' in operations and zero_only:
+            raise ValueError("The given range can only generate 0 yet div is included")
+
+        super().__init__(num_quest, '3cm')
+        self.nrange = nrange
+        self.operations = operations if len(operations) > 0 else (('add', 'sub', 'mul', 'div') if not zero_only else ('add', 'sub', 'mul'))
+
+    def get_problem(self) -> Math:
+        constant_side = [randint(self.nrange[0], self.nrange[1])]
+        operand = Number(randint(self.nrange[0], self.nrange[1]))
+        variable_side = None
+        operation = choice(self.operations)
+        match operation:
+            case 'add':
+                variable_side = ['x+'] + operand.get_latex()
+            case 'sub':
+                variable_side = ['x-'] + operand.get_latex()
+            case 'mul':
+                variable_side = operand.get_latex() + ['x']
+            case 'div':
+                operand_str = ''
+                for c in operand.get_latex():
+                    operand_str += c.dumps() if isinstance(c, LatexObject) else c
+                variable_side = [Command('frac', ['x', NoEscape(operand_str)])]
+
+        self.num_quest -= 1
+        if randint(0, 1) == 0:
+            return Math(inline=True, data=variable_side + ['='] + constant_side)
+        else:
+            return Math(inline=True, data=constant_side + ['='] + variable_side)
