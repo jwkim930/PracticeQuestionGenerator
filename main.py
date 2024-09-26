@@ -1,6 +1,6 @@
 import os
 
-from pylatex import Document, Command, Subsection, VerticalSpace, Package
+from pylatex import Document, Command, Subsection, VerticalSpace, Package, NoEscape
 from pylatex import MiniPage
 from random import randint
 
@@ -10,12 +10,9 @@ from classes.environments import Multicols
 
 
 # Parameters (edit here)
-probs = [problems.EquationSingleOperation(1, (-5, 5), 'add'),
-         problems.EquationSingleOperation(1, (-5, 5), 'sub'),
-         problems.EquationSingleOperation(1, (-5, 5), 'mul'),
-         problems.EquationSingleOperation(1, (-5, 5), 'div')]
-prob_name = "Various more"
-prob_inst = "Write the following expression as a fraction."
+probs = [problems.PolynomialSimplify(10, (-5, 5), (2, 2))]
+prob_name = "Polynomial"
+prob_inst = NoEscape("Simplify the following polynomials.")
 prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 

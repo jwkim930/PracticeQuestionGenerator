@@ -1,4 +1,4 @@
-from random import randint, choice
+from random import randint, choice, shuffle, random
 from decimal import Decimal
 from abc import ABC, abstractmethod
 
@@ -6,7 +6,7 @@ from pylatex import Math, Alignat, Command, Tabular, MiniPage
 from pylatex.base_classes import LatexObject
 from pylatex.utils import NoEscape
 
-from classes.math_objects import BaseMathClass, Fraction, Number
+from classes.math_objects import *
 
 
 class ProblemBase(ABC):
@@ -42,13 +42,13 @@ class BinaryOperation(ProblemBase, ABC):
         self.neg = neg
 
     @abstractmethod
-    def generator(self) -> BaseMathClass:
+    def generator(self) -> BaseMathEntity:
         """
-        Randomly generates a non-negative operand.
+        Randomly generates an operand.
         """
         pass   # child class should implement this
 
-    def generate_random_operands(self) -> tuple[BaseMathClass, BaseMathClass]:
+    def generate_random_operands(self) -> tuple[BaseMathEntity, BaseMathEntity]:
         """
         Randomly generates two operands for the problem.
         If neg is True, at least one of the operand will be negative.
@@ -78,6 +78,8 @@ class IntegerBinaryOperation(BinaryOperation):
         :param num_quest: The number of questions to be generated.
         :param operand: The operand to be used, such as + or \\times.
         :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
         :param neg: If True, at least one of the operands will be negative.
         """
         super().__init__(num_quest, operand, neg)
@@ -500,10 +502,12 @@ class EquationSingleOperation(ProblemBase):
         self.operations = operations if len(operations) > 0 else (('add', 'sub', 'mul', 'div') if not zero_only else ('add', 'sub', 'mul'))
 
     def get_problem(self) -> Math:
+        operation = choice(self.operations)
         constant_side = [randint(self.nrange[0], self.nrange[1])]
         operand = Number(randint(self.nrange[0], self.nrange[1]))
+        while operation == 'div' and operand == 0:
+            operand = Number(randint(self.nrange[0], self.nrange[1]))
         variable_side = None
-        operation = choice(self.operations)
         match operation:
             case 'add':
                 variable_side = ['x+'] + operand.get_latex()
@@ -522,3 +526,113 @@ class EquationSingleOperation(ProblemBase):
             return Math(inline=True, data=variable_side + ['='] + constant_side)
         else:
             return Math(inline=True, data=constant_side + ['='] + variable_side)
+
+
+class PolynomialSimplify(ProblemBase):
+    def __init__(self,
+                 num_quest: int,
+                 crange: tuple[int, int],
+                 drange: tuple[int, int],
+                 max_like: int=2,
+                 like_chance: float=0.75,
+                 *var: str):
+        """
+        Initializes a problem where the student must simplify a polynomial.
+        The polynomial only contains one variable.
+        The produced polynomial is guaranteed to have at least 2 like terms unless max_like=1.
+
+        :param num_quest: The number of questions to be generated.
+        :param crange: The range used for the coefficients, (begin, end) inclusive.
+                       The generated coefficient will never be 0.
+        :param drange: The range used for the degree of the polynomial, (begin, end) inclusive.
+                       This range cannot contain a negative number.
+        :param max_like: The maximum number of like terms in the polynomial for the same exponent.
+                         Note that 1 like term means there will be no other like terms.
+                         That is, if max_like=1, the polynomial 4x + 3 can be generated but not
+                         4x + 3x. The latter requires at least max_like=2.
+                         It must be at least 1. The default is 2.
+        :param like_chance: The probability of having more than 1 like term.
+                            This probability is applied for each exponent.
+                            The probabilities of getting 0 and 1 like term are equal.
+                            The probabilities of getting 2, 3, 4, etc. like terms are equal.
+                            Has no effect if max_like=1.
+        :param var: The possible variables to be used. Only one of them will be used per question.
+                    The default is just x.
+        """
+        super().__init__(num_quest, '4cm')
+        if crange[0] > crange[1]:
+            raise ValueError("The coefficient range contains no number")
+        if crange[1] - crange[0] == 0 and crange[0] == 0:
+            raise ValueError("The coefficient range only contains 0")
+        if drange[0] > drange[1]:
+            raise ValueError("The degree range contains no number")
+        if drange[0] < 0:
+            raise ValueError("The degree range includes negative numbers")
+        if max_like < 1:
+            raise ValueError("The max number of like terms must be at least 1")
+        if like_chance < 0 or like_chance > 1:
+            raise ValueError("Like chance must be 0 or 1 or anything in between")
+
+        self.crange = crange
+        self.drange = drange
+        self.max_like = max_like
+        self.like_chance = like_chance
+        if not var:
+            var = ('x',)
+        self.var = var
+
+    def random_coefficient(self) -> int:
+        """
+        Returns a random nonzero coefficient.
+        """
+        c = randint(self.crange[0], self.crange[1])
+        while c == 0:
+            c = randint(self.crange[0], self.crange[1])
+        return c
+
+    def generate_term(self, exp: int) -> dict[str, int]:
+        """
+        Generates a nonzero term with a random coefficient.
+
+        :param exp: The exponent of the term.
+        :return: The generated polynomial in a dictionary.
+        """
+        return {'coefficient': self.random_coefficient(), 'exponent': exp}
+
+    def get_problem(self) -> Math:
+        degree = randint(self.drange[0], self.drange[1])
+
+        # determine the number of like terms for each possible exponent
+        term_count = [0 for _ in range(degree+1)]   # index is exponent
+        to_do = list(range(degree+1))
+        if self.max_like == 1:
+            for i in to_do:
+                term_count[i] = randint(0, 1)
+        else:
+            # choose an exponent and make sure it has at least 2 like terms
+            i = choice(to_do)
+            to_do.pop(i)   # pop is fine since to_do is the same as the indices at this point
+            term_count[i] = randint(2, self.max_like)
+            # the rest is randomly selected
+            for i in to_do:
+                if random() < self.like_chance:
+                    # two or more like terms
+                    term_count[i] = randint(2, self.max_like)
+                else:
+                    # one or no like term
+                    term_count[i] = randint(0, 1)
+        if term_count[degree] == 0:
+            # max exponent term must be present to have the right degree
+            term_count[degree] = 1
+
+        # generate the polynomial
+        poly = []
+        for i in range(len(term_count)):
+            while term_count[i] > 0:
+                poly.append(self.generate_term(i))
+                term_count[i] -= 1
+
+        # return result as Math
+        shuffle(poly)
+        self.num_quest -= 1
+        return Math(inline=True, data=SingleVariablePolynomial(choice(self.var), poly).get_latex())
