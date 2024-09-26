@@ -1,4 +1,4 @@
-from random import randint, choice, shuffle, random
+from random import randint, choice, shuffle, random, sample
 from decimal import Decimal
 from abc import ABC, abstractmethod
 
@@ -468,7 +468,7 @@ class LinearRelationProblem(ProblemBase):
 
 class EquationSingleOperation(ProblemBase):
     def __init__(self, num_quest: int, nrange: tuple[int, int], *operations: str):
-        """
+        r"""
         Initializes an equation solving problem that requires one arithmetic operation to solve.
         The operation can be addition, subtraction, multiplication, and division.
         Note that division is always represented as a fraction.
@@ -533,9 +533,9 @@ class PolynomialSimplify(ProblemBase):
                  num_quest: int,
                  crange: tuple[int, int],
                  drange: tuple[int, int],
+                 *var: str,
                  max_like: int=2,
-                 like_chance: float=0.75,
-                 *var: str):
+                 like_chance: float=0.75):
         """
         Initializes a problem where the student must simplify a polynomial.
         The polynomial only contains one variable.
@@ -546,6 +546,8 @@ class PolynomialSimplify(ProblemBase):
                        The generated coefficient will never be 0.
         :param drange: The range used for the degree of the polynomial, (begin, end) inclusive.
                        This range cannot contain a negative number.
+        :param var: The possible variables to be used. Only one of them will be used per question.
+                    The default is just x.
         :param max_like: The maximum number of like terms in the polynomial for the same exponent.
                          Note that 1 like term means there will be no other like terms.
                          That is, if max_like=1, the polynomial 4x + 3 can be generated but not
@@ -556,8 +558,6 @@ class PolynomialSimplify(ProblemBase):
                             The probabilities of getting 0 and 1 like term are equal.
                             The probabilities of getting 2, 3, 4, etc. like terms are equal.
                             Has no effect if max_like=1.
-        :param var: The possible variables to be used. Only one of them will be used per question.
-                    The default is just x.
         """
         super().__init__(num_quest, '4cm')
         if crange[0] > crange[1]:
@@ -599,19 +599,41 @@ class PolynomialSimplify(ProblemBase):
         """
         return {'coefficient': self.random_coefficient(), 'exponent': exp}
 
-    def get_problem(self) -> Math:
-        degree = randint(self.drange[0], self.drange[1])
+    def generate_polynomial(self, degree: int=None, num_terms: int=None) -> SingleVariablePolynomial:
+        """
+        Randomly generates a polynomial, following the rules outlined in __init()__.
+
+        :param degree: The degree of the polynomial. If None (default), it is randomly generated using drange.
+        :param num_terms: If set, the generated polynomial will have exactly this many terms.
+                          To use this, max_like must be 1.
+                          If set to None (default), there will be no set number.
+        """
+        if degree is None:
+            degree = randint(self.drange[0], self.drange[1])
+        if degree < 0:
+            raise ValueError("The degree must be non-negative")
+        if num_terms is not None and num_terms < 1:
+            raise ValueError("The number of terms must be positive")
+        if num_terms and self.max_like > 1:
+            raise ValueError("num_terms argument cannot be used unless max_like is 1")
 
         # determine the number of like terms for each possible exponent
-        term_count = [0 for _ in range(degree+1)]   # index is exponent
-        to_do = list(range(degree+1))
+        term_count = [0 for _ in range(degree + 1)]  # index is exponent
+        to_do = list(range(degree + 1))
         if self.max_like == 1:
-            for i in to_do:
-                term_count[i] = randint(0, 1)
+            if num_terms is None:
+                for i in to_do:
+                    term_count[i] = randint(0, 1)
+            else:
+                term_count[degree] = 1   # max degree term is enforced here so that nothing is added later
+                if len(to_do) > 1:
+                    to_do = sample(to_do[:-1], k=num_terms-1)
+                    for i in to_do:
+                        term_count[i] = 1
         else:
             # choose an exponent and make sure it has at least 2 like terms
             i = choice(to_do)
-            to_do.pop(i)   # pop is fine since to_do is the same as the indices at this point
+            to_do.pop(i)  # pop is fine since to_do is the same as the indices at this point
             term_count[i] = randint(2, self.max_like)
             # the rest is randomly selected
             for i in to_do:
@@ -632,7 +654,70 @@ class PolynomialSimplify(ProblemBase):
                 poly.append(self.generate_term(i))
                 term_count[i] -= 1
 
-        # return result as Math
+        # return result as polynomial
         shuffle(poly)
+        return SingleVariablePolynomial(choice(self.var), poly)
+
+    def get_problem(self) -> Math:
         self.num_quest -= 1
-        return Math(inline=True, data=SingleVariablePolynomial(choice(self.var), poly).get_latex())
+        return Math(inline=True, data=self.generate_polynomial().get_latex())
+
+
+class PolynomialSubtract(PolynomialSimplify):
+    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], *var: str, min_term_count: int=1):
+        """
+        Generates a problem where two polynomials are subtracted.
+        The polynomials contain only one variable.
+
+        :param num_quest: The number of questions to be generated.
+        :param crange: The range used for the coefficients, (begin, end) inclusive.
+                       The generated coefficient will never be 0.
+        :param drange: The range used for the degree of the polynomial, (begin, end) inclusive.
+                       This range cannot contain a negative number.
+        :param min_term_count: The minimum number of terms to be used for each polynomial.
+                               1 by default.
+        :param var: The possible variables to be used. Only one of them will be used per question.
+                    The default is just x.
+        """
+        super().__init__(num_quest, crange, drange, *var, max_like=1)
+        if drange[1] + 1 < min_term_count:
+            raise ValueError(f"drange not big enough to generate {min_term_count} terms")
+        self.min_term_count = min_term_count
+
+    def get_problem(self) -> Math:
+        polies = []
+        for _ in range(2):
+            degree = randint(max(self.drange[0], self.min_term_count - 1), self.drange[1])
+            term_count = randint(self.min_term_count, degree + 1)
+            polies.append(self.generate_polynomial(degree, term_count))
+        self.num_quest -= 1
+        return Math(inline=True, data=polies[0].get_latex() + ['-', Command('left(')] + polies[1].get_latex() + [Command('right)')])
+
+
+class PolynomialMultiply(PolynomialSimplify):
+    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], max_term_count: int=2, *var: str):
+        """
+        Generates a problem where two polynomials are multiplied.
+        The polynomials contain only one variable.
+
+        :param num_quest: The number of questions to be generated.
+        :param crange: The range used for the coefficients, (begin, end) inclusive.
+                       The generated coefficient will never be 0.
+        :param drange: The range used for the degree of the polynomial, (begin, end) inclusive.
+                       This range cannot contain a negative number.
+                       The lower bound is capped by max_term_count-1 for the left multiplicand.
+                       That is, if max_term_count=3, then the degree of the left multiplicand will be 2 or more,
+                       even if the lower bound in drange is less than 2.
+        :param max_term_count: Maximum number of terms allowed for the left multiplicand. The default is 2 (binomial).
+        :param var: The possible variables to be used. Only one of them will be used per question.
+                    The default is just x.
+        """
+        super().__init__(num_quest, crange, drange, *var, max_like=1)
+        self.max_term_count = max_term_count
+
+    def get_problem(self) -> Math:
+        left_term_count = randint(1, self.max_term_count)
+        left = self.generate_polynomial(randint(max(self.drange[0], left_term_count-1), self.drange[1]), left_term_count)
+        right = self.generate_polynomial()
+        self.num_quest -= 1
+        return Math(inline=True, data=[Command('left(')] + left.get_latex() + [Command('right)'), Command('left(')] + right.get_latex() + [Command('right)')])
