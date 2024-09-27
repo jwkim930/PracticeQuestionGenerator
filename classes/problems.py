@@ -721,3 +721,37 @@ class PolynomialMultiply(PolynomialSimplify):
         right = self.generate_polynomial()
         self.num_quest -= 1
         return Math(inline=True, data=[Command('left(')] + left.get_latex() + [Command('right)'), Command('left(')] + right.get_latex() + [Command('right)')])
+
+
+class PolynomialDivide(PolynomialSimplify):
+    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], *var: str, no_constant=False):
+        """
+        Generates a problem where a polynomial is divided by a monomial.
+        The problem is always written as a fraction.
+        The quotient always simplify to a polynomial with integer coefficients.
+
+        :param num_quest: The number of questions to be generated.
+        :param crange: The range used for the coefficients, (begin, end) inclusive.
+                       The generated coefficient will never be 0.
+        :param drange: The range used for the degree of the dividend and the divisor, (begin, end) inclusive.
+                       This range cannot contain a negative number.
+        :param var: The possible variables to be used. Only one of them will be used per question.
+                    The default is just x.
+        :param no_constant: If True, the degree of the divisor will be at least 1.
+                            False by default.
+        """
+        super().__init__(num_quest, crange, drange, *var, max_like=1)
+        if no_constant and drange[1] < 1:
+            raise ValueError("no_constant used yet drange doesn't contain 1 or higher")
+        self.no_constant = no_constant
+
+    def get_problem(self) -> Math:
+        if self.no_constant:
+            divisor = self.generate_polynomial(randint(max(1, self.drange[0]), self.drange[1]), 1)
+        else:
+            divisor = self.generate_polynomial(num_terms=1)
+        quotient = self.generate_polynomial(randint(0, self.drange[1] - divisor.degree))
+        dividend = divisor * quotient
+
+        self.num_quest -= 1
+        return Math(inline=True, data=PolynomialFraction(dividend, divisor).get_latex())

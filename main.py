@@ -12,7 +12,8 @@ from classes.environments import Multicols
 # Parameters (edit here)
 probs = [problems.PolynomialSimplify(4, (-5, 5), (2, 3)),
          problems.PolynomialSubtract(3, (-5, 5), (1, 3), min_term_count=2),
-         problems.PolynomialMultiply(3, (-5, 5), (1, 2), 1)]
+         problems.PolynomialMultiply(3, (-5, 5), (1, 2), 1),
+         problems.PolynomialDivide(3, (-5, 5), (0, 6), no_constant=True)]
 prob_name = "Polynomial"
 prob_inst = NoEscape("Simplify the following polynomials.")
 prob_cols = 1

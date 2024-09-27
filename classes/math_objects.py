@@ -204,3 +204,52 @@ class SingleVariablePolynomial(BaseMathClass):
             result.append(NoEscape(opr + term_str(self.variable, coe, exp)))
 
         return result
+
+    def __mul__(self, other):
+        if not isinstance(other, SingleVariablePolynomial):
+            raise ValueError(f"multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
+        if self.variable != other.variable:
+            raise ValueError("")
+        result = []
+        for sterm in self.data:
+            for oterm in other.data:
+                result.append({'coefficient': sterm['coefficient'] * oterm['coefficient'],
+                               'exponent': sterm['exponent'] + oterm['exponent']})
+        return SingleVariablePolynomial(self.variable, result)
+
+
+class PolynomialFraction(BaseMathClass):
+    def __init__(self, num: SingleVariablePolynomial, denom: SingleVariablePolynomial, sign=1, wrap=False):
+        """
+        A fraction of single-variable polynomials.
+        The numerator and the denominator must use the same variable.
+
+        :param num: The numerator polynomial.
+        :param denom: The denominator polynomial.
+        :param sign: The sign of the fraction. 1 means positive, -1 means negative.
+        :param wrap: If True, the fraction will be enclosed in parentheses.
+        """
+        if num.variable != denom.variable:
+            raise ValueError(f"The numerator uses variable {num.variable} whereas the denominator uses {denom.variable}")
+        if sign not in (-1, 1):
+            raise ValueError("The sign must be either 1 or -1")
+        self.num = num
+        self.denom = denom
+        self.variable = num.variable
+        self.sign = sign
+        self.wrap = wrap
+
+    def get_latex(self) -> list[Command | str]:
+        num_text = NoEscape()
+        denom_text = NoEscape()
+        for t in self.num.get_latex():
+            num_text += t
+        for t in self.denom.get_latex():
+            denom_text += t
+        result = [Command('dfrac', [num_text, denom_text])]
+        if self.sign == -1:
+            result.insert(0, '-')
+        if self.wrap:
+            result.insert(0, Command('left('))
+            result.append(Command('right)'))
+        return result
