@@ -26,3 +26,8 @@ class ParalleloAreaProblem(problems.WordProblem):
 linear_relation_mix = [problems.LinearRelationProblem(4, (-3, 3), (-2, 2)),
                        problems.LinearRelationProblem(1, (-3, 3), (-2, 2), (-2, 2)),
                        problems.LinearRelationProblem(1, (0, 0), (-2, 2), no_constant=False)]
+
+single_operation_equation_mix = [problems.EquationSingleOperation(3, (-9, 9), 'add'),
+                                 problems.EquationSingleOperation(3, (-9, 9), 'sub'),
+                                 problems.EquationSingleOperation(3, (-9, 9), 'mul'),
+                                 problems.EquationSingleOperation(3, (-9, 9), 'div')]

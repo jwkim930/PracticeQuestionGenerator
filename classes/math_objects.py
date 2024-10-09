@@ -7,11 +7,25 @@ from pylatex.base_classes import LatexObject
 
 class BaseMathClass(ABC):
     @abstractmethod
-    def get_latex(self) -> list[LatexObject, str, int, float]:
+    def get_latex(self) -> list[LatexObject, str, int]:
         """
         Returns the LaTeX representation of the object in a list.
         """
         pass   # child class should implement this
+
+    def dumps(self) -> str:
+        """
+        Returns the string representation of the object.
+        """
+        result = ''
+        for l in self.get_latex():
+            if isinstance(l, LatexObject):
+                result += l.dumps()
+            elif isinstance(l, str):
+                result += l
+            else:
+                result += str(l)
+        return result
 
 
 class BaseMathEntity(BaseMathClass, ABC):
@@ -240,12 +254,8 @@ class PolynomialFraction(BaseMathClass):
         self.wrap = wrap
 
     def get_latex(self) -> list[Command | str]:
-        num_text = NoEscape()
-        denom_text = NoEscape()
-        for t in self.num.get_latex():
-            num_text += t
-        for t in self.denom.get_latex():
-            denom_text += t
+        num_text = NoEscape(self.num.dumps())
+        denom_text = NoEscape(self.denom.dumps())
         result = [Command('dfrac', [num_text, denom_text])]
         if self.sign == -1:
             result.insert(0, '-')

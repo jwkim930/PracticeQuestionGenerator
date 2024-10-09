@@ -516,10 +516,8 @@ class EquationSingleOperation(ProblemBase):
             case 'mul':
                 variable_side = operand.get_latex() + ['x']
             case 'div':
-                operand_str = ''
-                for c in operand.get_latex():
-                    operand_str += c.dumps() if isinstance(c, LatexObject) else c
-                variable_side = [Command('frac', ['x', NoEscape(operand_str)])]
+                operand_str = NoEscape(operand.dumps())
+                variable_side = [Command('frac', ['x', operand_str])]
 
         self.num_quest -= 1
         if randint(0, 1) == 0:
