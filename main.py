@@ -10,11 +10,11 @@ from classes.environments import Multicols
 
 
 # Parameters (edit here)
-probs = preset.single_operation_equation_mix
+probs = [problems.EquationMultiOperation(10, (-5, 5))]
 prob_name = "Equation"
 prob_inst = NoEscape("Solve the following equations for $x$.")
 prob_cols = 1
-mix_up = True   # If True, questions are generated in mixed order.
+mix_up = False   # If True, questions are generated in mixed order.
 
 
 # Don't edit below

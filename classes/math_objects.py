@@ -28,7 +28,38 @@ class BaseMathClass(ABC):
         return result
 
 
+class TextWrapper(BaseMathClass):
+    def __init__(self, texts: list[str | NoEscape]=None):
+        """
+        A class to wrap raw texts into BaseMathClass.
+        get_latex() returns the texts in NoEscape.
+        """
+        if texts is None:
+            self.texts = []
+        else:
+            self.texts = [NoEscape(t) for t in texts]
+
+    def get_latex(self) -> list[NoEscape]:
+        return self.texts
+
+    def append(self, text: str | NoEscape):
+        """
+        Adds a text.
+        """
+        self.texts.append(NoEscape(text))
+
+
 class BaseMathEntity(BaseMathClass, ABC):
+    """
+    This class must include the attribute sign and wrap,
+    as well as implementing __eq__() and __neg__.
+    """
+    def __init__(self, sign: int, wrap: bool):
+        if sign != 1 and sign != -1:
+            raise ValueError("sign must be 1 or -1")
+        self.sign = sign
+        self.wrap = wrap
+
     @abstractmethod
     def __eq__(self, other):
         """
@@ -45,28 +76,36 @@ class BaseMathEntity(BaseMathClass, ABC):
 
 
 class Fraction(BaseMathEntity):
-    def __init__(self, num: int, denom: int, sign=1, big=True):
+    def __init__(self, num: int, denom: int, sign=1, big=True, wrap=False):
         """
         A fraction with integer numerator/denominator.
+        Multiplying it by other entity leaves the fraction unsimplified.
+        Multiplying a big fraction and small fraction results in a big fraction.
 
         :param num: Numerator of the fraction.
-        :param denom: Denominator of the fraction.
+        :param denom: Denominator of the fraction. Cannot be zero.
         :param sign: The sign of the fraction. 1 if positive, -1 if negative.
         :param big: If True, get_command() will return a fraction in display mode (bigger text).
+        :param wrap: If True, the fraction will be surrounded by parentheses when it's negative.
+                     Has no effect if the sign is positive.
         """
-        if sign != 1 and sign != -1:
-            raise ValueError("sign must be 1 or -1")
+        super().__init__(sign, wrap)
+        if denom == 0:
+            raise ValueError("The denominator cannot be 0")
         self.num = num
         self.denom = denom
-        self.sign = sign
         self.big = big
 
     def get_latex(self) -> list[Command | str]:
         if self.sign == -1:
-            return [Command("left("),
-                    '-',
-                    Command("dfrac" if self.big else "frac", [self.num, self.denom]),
-                    Command("right)")]
+            if self.wrap:
+                return [Command("left("),
+                        '-',
+                        Command("dfrac" if self.big else "frac", [self.num, self.denom]),
+                        Command("right)")]
+            else:
+                return ['-' if self.sign == -1 else '',
+                        Command('dfrac' if self.big else 'frac', [self.num, self.denom])]
         else:
             return [Command("dfrac" if self.big else "frac", [self.num, self.denom])]
 
@@ -85,13 +124,24 @@ class Fraction(BaseMathEntity):
     def __neg__(self):
         return Fraction(self.num, self.denom, -self.sign, self.big)
 
+    def __mul__(self, other):
+        if isinstance(other, int):
+            return Fraction(self.num * other, self.denom, self.sign, self.big)
+        elif isinstance(other, Number) and other.is_int():
+            return Fraction(int(self.num * other.mag), self.denom, self.sign * other.sign, self.big)
+        elif isinstance(other, Fraction):
+            return Fraction(self.num * other.num, self.denom * other.denom, self.sign * other.sign, self.big or other.big)
+        else:
+            raise ValueError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
 class Number(BaseMathEntity):
-    def __init__(self, num: int | str):
+    def __init__(self, num: int | str, wrap=False):
         """
         An integer or a decimal number.
 
         :param num: The number to be represented. For a decimal number, enter it as a string.
+        :param wrap: If True, the number will be surrounded by parentheses when it's negative.
+                     Has no effect if the sign is positive.
         """
         if type(num) == str:
             num = Decimal(num)
@@ -101,17 +151,26 @@ class Number(BaseMathEntity):
             neg = True
             num = -num
 
-        self.sign = -1 if neg else 1
+        super().__init__(-1 if neg else 1, wrap)
         self.mag = num
 
     def get_latex(self) -> list[Command | str]:
         if self.sign == -1:
-            return [Command("left("),
-                    '-',
-                    str(self.mag),
-                    Command("right)")]
+            if self.wrap:
+                return [Command("left("),
+                        '-',
+                        str(self.mag),
+                        Command("right)")]
+            else:
+                return ['-', str(self.mag)]
         else:
             return [str(self.mag)]
+
+    def is_int(self):
+        """
+        Returns True if this number can be converted to integer with no loss.
+        """
+        return int(self.mag) == self.mag
 
     def __eq__(self, other):
         if not isinstance(other, Number):
@@ -124,6 +183,24 @@ class Number(BaseMathEntity):
             return Number(-self.mag)
         else:
             return Number(str(self.sign)[:-1] + str(self.mag))
+
+    def __mul__(self, other):
+        if isinstance(other, int):
+            if type(self.mag) is int:
+                return Number(other * self.mag * self.sign)
+            else:
+                return Number(str(other * self.mag * self.sign))
+        elif isinstance(other, Decimal):
+            return Number(str(other * self.mag * self.sign))
+        elif isinstance(other, Number):
+            if type(self.mag) is int and type(other.mag) is int:
+                return Number(self.mag * self.sign * other.mag * other.sign)
+            else:
+                return Number(str(self.mag * self.sign * other.mag * other.sign))
+        elif isinstance(other, Fraction):
+            return other * self
+        else:
+            raise ValueError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
 
 class SingleVariablePolynomial(BaseMathClass):
@@ -223,7 +300,7 @@ class SingleVariablePolynomial(BaseMathClass):
         if not isinstance(other, SingleVariablePolynomial):
             raise ValueError(f"multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
         if self.variable != other.variable:
-            raise ValueError("")
+            raise ValueError(f"The two polynomials use different variables: {self.variable} and {other.variable}")
         result = []
         for sterm in self.data:
             for oterm in other.data:

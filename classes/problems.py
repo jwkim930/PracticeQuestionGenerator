@@ -753,3 +753,210 @@ class PolynomialDivide(PolynomialSimplify):
 
         self.num_quest -= 1
         return Math(inline=True, data=PolynomialFraction(dividend, divisor).get_latex())
+
+
+class EquationMultiOperation(ProblemBase):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str, var=('x',)):
+        r"""
+        Initializes a problem where an equation must be solved.
+        Every equation requires at least two operations to solve.
+        The randomly generated numbers will never be 0.
+        A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+
+        Possible equation types (the variable is always x, the rest are random. The order of terms will be randomized):
+
+        simple: ax + b = c
+        simple_div: \frac{x}{a} + b = c
+        simple_dist: a(x + b) = c
+        double: ax + b = cx + d
+        double_dist: a(bx + c) = d(ex + f)
+        double_frac: \frac{x}{a} + \frac{b}{c} = \frac{d}{e}
+        double_frac_dist: \frac{a}{b}(x + c) = \frac{d}{e}(x + f)
+        rational: \frac{a}{x} = b
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
+        :param types: The types of equations to be used.
+                      Refer to the docstring for the options and the description of each type.
+                      If nothing is given, every type can appear.
+        :param var: The potential variables to be used. The default is just x.
+        """
+        super().__init__(num_quest, '6cm')
+        possible_types = ('simple',
+                     'simple_div',
+                     'simple_dist',
+                     'double',
+                     'double_dist',
+                     'double_frac',
+                     'double_frac_dist',
+                     'rational')
+
+        if nrange[0] > nrange[1]:
+            raise ValueError("The given range does not contain any integer")
+        if nrange[0] == nrange[1]:
+            if nrange[0] == 0:
+                raise ValueError("The given range only contains 0")
+            elif nrange[0] == 1:
+                raise ValueError("The given range only contains 1")
+        if nrange == (0, 1):
+            raise ValueError("The given range only contains 0 and 1")
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"The problem type {t} is invalid")
+
+        if not types:
+            types = possible_types
+        self.types = types
+        self.nrange = nrange
+        self.var = var
+
+    def get_problem(self) -> Math:
+        var = choice(self.var)
+        prob_type = choice(self.types)
+        candidates = [n for n in range(self.nrange[0], self.nrange[1]) if n != 0]
+        num_params = 0
+
+        # some problem types are skipped to prevent having no solution
+        if prob_type in ('simple', 'simple_div', 'simple_dist'):
+            num_params = 3
+        elif prob_type == 'double_frac':
+            num_params = 5
+        elif prob_type == 'rational':
+            num_params = 2
+
+        params = []
+        for _ in range(num_params):
+            params.append(choice(candidates))
+        lhs = None
+        rhs = None
+
+        match prob_type:
+            case 'simple':
+                while params[0] == 1:
+                    params[0] = choice(candidates)   # params[0] shouldn't be 1
+                lhs = SingleVariablePolynomial(var,
+                                               sample([{'coefficient': params[0], 'exponent': 1},
+                                                      {'coefficient': params[1], 'exponent': 0}],
+                                                      2))
+                rhs = TextWrapper([str(params[2])])
+            case 'simple_div':
+                while params[0] == 1:
+                    params[0] = choice(candidates)  # params[0] shouldn't be 1
+                if random() < 0.5:
+                    lhs = TextWrapper([Command('frac', [var, params[0]]).dumps(),
+                                       '+' if params[1] > 0 else '',
+                                       str(params[1])])
+                else:
+                    lhs = TextWrapper([str(params[1]),
+                                       '+',
+                                       Command('frac', [var, params[0]]).dumps()])
+                rhs = TextWrapper([str(params[2])])
+            case 'simple_dist':
+                while params[0] == 1:
+                    params[0] = choice(candidates)   # params[0] shouldn't be 1
+                lhs = TextWrapper([str(params[0]) if params[0] != -1 else '-',
+                                   Command('left(').dumps(),
+                                   SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                         {'coefficient': params[1], 'exponent': 0}], 2)).dumps(),
+                                   Command('right)').dumps()])
+                rhs = TextWrapper([str(params[2])])
+            case 'double':
+                # generate parameters, making sure it has a solution
+                # ax + b = cx + d has a solution if a != c
+                params = [0, 0, 0, 0]
+                for i in [1, 3]:   # these don't matter
+                    params[i] = choice(candidates)
+                if 1 in candidates:
+                    candidates.remove(1)   # a and c shouldn't be 1
+                params[0] = candidates.pop(randint(0, len(candidates) - 1))    # choose a first
+                params[2] = choice(candidates)
+
+                lhs = SingleVariablePolynomial(var, sample([{'coefficient': params[0], 'exponent': 1},
+                                                            {'coefficient': params[1], 'exponent': 0}], 2))
+                rhs = SingleVariablePolynomial(var, sample([{'coefficient': params[2], 'exponent': 1},
+                                                            {'coefficient': params[3], 'exponent': 0}], 2))
+            case 'double_dist':
+                # generate parameters, making sure it has a solution
+                # a(bx + c) = d(ex + f) has a solution if ab != de
+                params = [0, 0, 0, 0, 0, 0]
+                for i in [2, 5]:   # c, f don't matter
+                    params[i] = choice(candidates)
+                if 1 in candidates:
+                    candidates.remove(1)   # a, b, d, e shouldn't be 1
+                for i in [0, 1]:   # draw a, b first
+                    params[i] = choice(candidates)
+                for _ in range(100):
+                    d, e = choice(candidates), choice(candidates)
+                    if d * e != params[0] * params[1]:
+                        params[3] = d
+                        params[4] = e
+                        break
+                if params[3] == 0:
+                    raise ValueError("The given nrange cannot seem to generate a double_dist with a solution")
+
+                lhs = TextWrapper([str(params[0]) if params[0] != -1 else '-',
+                                   Command('left(').dumps(),
+                                   SingleVariablePolynomial(var, sample([{'coefficient': params[1], 'exponent': 1},
+                                                                         {'coefficient': params[2], 'exponent': 0}],
+                                                                        2)).dumps(),
+                                   Command('right)').dumps()])
+                rhs = TextWrapper([str(params[2]) if params[2] != -1 else '-',
+                                   Command('left(').dumps(),
+                                   SingleVariablePolynomial(var, sample([{'coefficient': params[3], 'exponent': 1},
+                                                                         {'coefficient': params[4], 'exponent': 0}],
+                                                                        2)).dumps(),
+                                   Command('right)').dumps()])
+            case 'double_frac':
+                for i in [0, 2, 4]:   # params[0, 2, 4] aren't supposed to be 1
+                    while params[i] == 1:
+                        params[i] = choice(candidates)
+                if random() < 0.5:
+                    lhs = TextWrapper([Command('frac', [var, params[0]]).dumps(),
+                                       '+',
+                                       Command('frac', [params[1], params[2]]).dumps()])
+                else:
+                    lhs = TextWrapper([Command('frac', [params[1], params[2]]).dumps(),
+                                       '+',
+                                       Command('frac', [var, params[0]]).dumps()])
+                rhs = Fraction(params[3], params[4], big=False)
+            case 'double_frac_dist':
+                # generate parameters, making sure it has a solution
+                # \frac{a}{b}(x + c) = \frac{d}{e}(x + f) has a solution if a/b != d/e
+                params = [0, 0, 0, 0, 0, 0]
+                candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n != 0]
+                for i in [0, 1, 2, 5]:   # draw a, b first; c, f don't matter
+                    params[i] = choice(candidates)
+                while params[1] == 1:   # b shouldn't be 1
+                    params[1] = choice(candidates)
+                for _ in range(100):
+                    d, e = choice(candidates), choice(candidates)
+                    while e == 1:   # e shouldn't be 1
+                        e = choice(candidates)
+                    if d/e != params[0]/params[1]:
+                        params[3] = d
+                        params[4] = e
+                        break
+                if params[3] == 0:
+                    raise ValueError("The given nrange cannot seem to generate a double_frac_dist with a solution")
+
+                lhs = TextWrapper([Fraction(params[0], params[1], big=False).dumps(),
+                                   Command('left(').dumps(),
+                                   SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                         {'coefficient': params[2], 'exponent': 0}], 2)).dumps(),
+                                   Command('right)').dumps()])
+                rhs = TextWrapper([Fraction(params[3], params[4], big=False).dumps(),
+                                   Command('left(').dumps(),
+                                   SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                         {'coefficient': params[5], 'exponent': 0}], 2)).dumps(),
+                                   Command('right)').dumps()])
+            case 'rational':
+                lhs = TextWrapper([Command('frac', [params[0], var]).dumps()])
+                rhs = TextWrapper([str(params[1])])
+        if random() < 0.5:
+            result = lhs.get_latex() + ['='] + rhs.get_latex()
+        else:
+            result = rhs.get_latex() + ['='] + lhs.get_latex()
+
+        self.num_quest -= 1
+        return Math(inline=True, data=result)
+    
