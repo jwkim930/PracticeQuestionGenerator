@@ -9,9 +9,9 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.EquationMultiOperation(10, (-9, 9), var=('x', 'y', 'z', 'a', 'b', 'c'), inequality=True)]
-prob_name = "Inequality"
-prob_inst = NoEscape("Find all values of $x$ that satisfy each of the following inequalities.")
+probs = [preset.MultiOperationChallengingMix(100, (-9, 9), var=('x', 'y', 'z', 'a', 'b', 'c'))]
+prob_name = "Equation"
+prob_inst = NoEscape("Solve each of the following equations for the missing variable.")
 prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 

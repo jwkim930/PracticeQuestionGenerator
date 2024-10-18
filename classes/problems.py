@@ -773,6 +773,11 @@ class EquationMultiOperation(ProblemBase):
         double_frac: \frac{x}{a} + \frac{b}{c} = \frac{d}{e}
         double_frac_dist: \frac{a}{b}(x + c) = \frac{d}{e}(x + f)
         rational: \frac{a}{x} = b
+        frac_const: \frac{x}{a} + b = \frac{c}{d}
+        bino_frac: \frac{x + a}{b} + \frac{c}{d} = \frac{e}{f}
+        double_bino_frac: \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f}
+        bino_frac_const: \frac{x + a}{b} + c = d
+        double_bino_frac_large: \frac{x + a}{b} + cx + d = \frac{x + e}{f} + g
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -785,13 +790,18 @@ class EquationMultiOperation(ProblemBase):
         """
         super().__init__(num_quest, '6cm')
         possible_types = ('simple',
-                     'simple_div',
-                     'simple_dist',
-                     'double',
-                     'double_dist',
-                     'double_frac',
-                     'double_frac_dist',
-                     'rational')
+                          'simple_div',
+                          'simple_dist',
+                          'double',
+                          'double_dist',
+                          'double_frac',
+                          'double_frac_dist',
+                          'rational',
+                          'frac_const',
+                          'bino_frac',
+                          'double_bino_frac',
+                          'bino_frac_const',
+                          'double_bino_frac_large')
 
         if nrange[0] > nrange[1]:
             raise ValueError("The given range does not contain any integer")
@@ -820,7 +830,7 @@ class EquationMultiOperation(ProblemBase):
             middle = '='
         var = choice(self.var)
         prob_type = choice(self.types)
-        candidates = [n for n in range(self.nrange[0], self.nrange[1]) if n != 0]
+        candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n != 0]
         num_params = 0
 
         # some problem types are skipped to prevent having no solution
@@ -830,6 +840,10 @@ class EquationMultiOperation(ProblemBase):
             num_params = 5
         elif prob_type == 'rational':
             num_params = 2
+        elif prob_type in ('frac_const', 'bino_frac_const'):
+            num_params = 4
+        elif prob_type == 'bino_frac':
+            num_params = 6
 
         params = []
         for _ in range(num_params):
@@ -930,7 +944,6 @@ class EquationMultiOperation(ProblemBase):
                 # generate parameters, making sure it has a solution
                 # \frac{a}{b}(x + c) = \frac{d}{e}(x + f) has a solution if a/b != d/e
                 params = [0, 0, 0, 0, 0, 0]
-                candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n != 0]
                 for i in [0, 1, 2, 5]:   # draw a, b first; c, f don't matter
                     params[i] = choice(candidates)
                 while params[1] == 1:   # b shouldn't be 1
@@ -959,6 +972,111 @@ class EquationMultiOperation(ProblemBase):
             case 'rational':
                 lhs = TextWrapper([Command('frac', [params[0], var]).dumps()])
                 rhs = TextWrapper([str(params[1])])
+            case 'frac_const':
+                if random() < 0.5:
+                    lhs = TextWrapper([Command('frac', [var, params[0]]).dumps(),
+                                       '+' if params[1] > 0 else '',
+                                       str(params[1])])
+                else:
+                    lhs = TextWrapper([str(params[1]),
+                                       '+',
+                                       Command('frac', [var, params[0]]).dumps()])
+                rhs = Fraction(params[0], params[1], big=False)
+            case 'bino_frac':
+                if 1 in candidates:   # b, d, f shouldn't be 1
+                    candidates.remove(1)
+                    for i in [1, 3, 5]:
+                        params[i] = choice(candidates)
+
+                if random() < 0.5:
+                    lhs = TextWrapper([Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                              {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps(),
+                                       '+',
+                                       Fraction(params[2], params[3], big=False).dumps()])
+                else:
+                    lhs = TextWrapper([Fraction(params[2], params[3], big=False).dumps(),
+                                       '+',
+                                       Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                              {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps()])
+                rhs = Fraction(params[4], params[5], big=False)
+            case 'double_bino_frac':
+                # \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f} has a solution as long as b != d
+                params = [0, 0, 0, 0, 0, 0]
+                for i in [0, 2, 4]:   # these don't matter
+                    params[i] = choice(candidates)
+                if 1 in candidates:   # b, d, f shouldn't be 1
+                    candidates.remove(1)
+                params[5] = choice(candidates)
+                params[1] = candidates.pop(randint(0, len(candidates) - 1))   # choose b first
+                params[3] = choice(candidates)
+
+                lhs = TextWrapper([Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                   {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps(),
+                                   '+',
+                                   Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                  {'coefficient': params[2],
+                                                                                   'exponent': 0}], 2)).dumps(),
+                                            params[3]]).dumps()])
+                rhs = Fraction(params[4], params[5], big=False)
+            case 'bino_frac_const':
+                if 1 in candidates:   # b cannot be 1
+                    candidates.remove(1)
+                    params[1] = choice(candidates)
+
+                if random() < 0.5:
+                    lhs = TextWrapper([Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                              {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps(),
+                                       '+' if params[2] > 0 else '',
+                                       str(params[2])])
+                else:
+                    lhs = TextWrapper(
+                        [str(params[2]),
+                         '+',
+                         Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                              {'coefficient': params[0], 'exponent': 0}], 2)).dumps(),params[1]]).dumps()])
+                rhs = Number(params[3])
+            case 'double_bino_frac_large':
+                # frac{x + a}{b} + cx + d = \frac{x + e}{f} + g has a solution as long as f/b + fc != 1
+                params = [0, 0, 0, 0, 0, 0, 0]
+                for i in [0, 3, 4, 6]:   # these don't matter
+                    params[i] = choice(candidates)
+                if 1 in candidates:   # b, c, f shouldn't be 1
+                    candidates.remove(1)
+                for _ in range(100):
+                    b = choice(candidates)
+                    c = choice(candidates)
+                    f = choice(candidates)
+                    if f/b + f*c != 1:
+                        params[1] = b
+                        params[2] = c
+                        params[5] = f
+                        break
+                if params[1] == 0:
+                    raise ValueError("The given nrange cannot seem to generate a double_bino_frac_large with a solution")
+
+                # each element is the list [sign, content], where sign is 1 or -1
+                # if the number is negative, then the content will still be a negative number
+                lhs_elements = sample([[1, Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                       {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps()],
+                                [1 if params[2] > 0 else -1, str(params[2]) + var],
+                                [1 if params[3] > 0 else -1, str(params[3])]], 3)
+                lhs = [lhs_elements.pop(0)[1]]
+                for elem in lhs_elements:
+                    if elem[0] == 1:
+                        lhs.append('+')
+                    lhs.append(elem[1])
+                lhs = TextWrapper(lhs)
+                if random() < 0.5:
+                    rhs = TextWrapper([Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                              {'coefficient': params[4], 'exponent': 0}], 2)).dumps(), params[5]]).dumps(),
+                                       '+' if params[6] > 0 else '',
+                                       str(params[6])])
+                else:
+                    rhs = TextWrapper([str(params[6]),
+                                       '+',
+                                       Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
+                                                                                              {'coefficient': params[4], 'exponent': 0}], 2)).dumps(), params[5]]).dumps()])
+
         if random() < 0.5:
             result = lhs.get_latex() + [middle] + rhs.get_latex()
         else:
@@ -966,4 +1084,3 @@ class EquationMultiOperation(ProblemBase):
 
         self.num_quest -= 1
         return Math(inline=True, data=result)
-    
