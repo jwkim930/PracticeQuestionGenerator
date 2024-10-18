@@ -756,7 +756,7 @@ class PolynomialDivide(PolynomialSimplify):
 
 
 class EquationMultiOperation(ProblemBase):
-    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str, var=('x',)):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str, var=('x',), inequality=False):
         r"""
         Initializes a problem where an equation must be solved.
         Every equation requires at least two operations to solve.
@@ -780,6 +780,8 @@ class EquationMultiOperation(ProblemBase):
                       Refer to the docstring for the options and the description of each type.
                       If nothing is given, every type can appear.
         :param var: The potential variables to be used. The default is just x.
+        :param inequality: If True, the problems will be inequality problems instead.
+                           One of the four inequality will be randomly chosen for each question.
         """
         super().__init__(num_quest, '6cm')
         possible_types = ('simple',
@@ -809,8 +811,13 @@ class EquationMultiOperation(ProblemBase):
         self.types = types
         self.nrange = nrange
         self.var = var
+        self.inequality = inequality
 
     def get_problem(self) -> Math:
+        if self.inequality:
+            middle = choice(['>', '<', Command('geq'), Command('leq')])
+        else:
+            middle = '='
         var = choice(self.var)
         prob_type = choice(self.types)
         candidates = [n for n in range(self.nrange[0], self.nrange[1]) if n != 0]
@@ -953,9 +960,9 @@ class EquationMultiOperation(ProblemBase):
                 lhs = TextWrapper([Command('frac', [params[0], var]).dumps()])
                 rhs = TextWrapper([str(params[1])])
         if random() < 0.5:
-            result = lhs.get_latex() + ['='] + rhs.get_latex()
+            result = lhs.get_latex() + [middle] + rhs.get_latex()
         else:
-            result = rhs.get_latex() + ['='] + lhs.get_latex()
+            result = rhs.get_latex() + [middle] + lhs.get_latex()
 
         self.num_quest -= 1
         return Math(inline=True, data=result)
