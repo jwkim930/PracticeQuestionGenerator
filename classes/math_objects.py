@@ -1,5 +1,6 @@
 from decimal import Decimal
 from abc import ABC, abstractmethod
+from random import shuffle
 
 from pylatex import Command, NoEscape
 from pylatex.base_classes import LatexObject
@@ -204,7 +205,7 @@ class Number(BaseMathEntity):
 
 
 class SingleVariablePolynomial(BaseMathClass):
-    def __init__(self, variable: str, data: list[dict[str, int]]):
+    def __init__(self, variable: str, data: list[dict[str, int]], mix=False):
         """
         A polynomial with integer coefficients and one variable.
         The input data should be a list of dictionaries,
@@ -239,6 +240,7 @@ class SingleVariablePolynomial(BaseMathClass):
 
         :param variable: The variable to be used.
         :param data: The list of data as explained above.
+        :param mix: If True, the terms will be shuffled.
         """
         self.variable = variable
         self.data = data
@@ -253,6 +255,8 @@ class SingleVariablePolynomial(BaseMathClass):
                 raise ValueError(f"The term {term} has zero coefficient but nonzero exponent")
 
         self.degree = max([d['exponent'] for d in data])
+        if mix:
+            shuffle(self.data)
 
     def __len__(self):
         """
@@ -339,4 +343,51 @@ class PolynomialFraction(BaseMathClass):
         if self.wrap:
             result.insert(0, Command('left('))
             result.append(Command('right)'))
+        return result
+
+
+class UnsafePolynomial(BaseMathClass):
+    def __init__(self, *terms: str | BaseMathClass, mix=False):
+        """
+        A polynomial with arbitrary terms.
+
+        Internally, each term will be assigned a sign for concatenation.
+        If the term is given as a string, the term is negative if it has '-' in the beginning and positive otherwise.
+        If the term is given as a BaseMathEntity, its sign will be used.
+        If the term is other BaseMathClass, it is always positive.
+
+        Each term will be represented as a dictionary with keys 'sign' and 'value'.
+        'sign' will be either 1 or -1. 'value' will be negative if the original term was negative.
+
+        :param terms: The terms for the polynomial.
+        :param mix: If True, the order of the terms will be shuffled.
+        """
+        self.terms = []
+        for term in terms:
+            t = {}
+            if isinstance(term, str):
+                if term[0] == '-':
+                    t['sign'] = -1
+                else:
+                    t['sign'] = 1
+                t['value'] = term
+            elif isinstance(term, BaseMathEntity):
+                t['sign'] = term.sign
+                t['value'] = term.dumps()
+            elif isinstance(term, BaseMathClass):
+                t['sign'] = 1
+                t['value'] = term.dumps()
+            else:
+                raise ValueError(f"type {type(term).__name__} is not allowed for a term")
+            self.terms.append(t)
+        if mix:
+            shuffle(self.terms)
+
+    def get_latex(self) -> list[NoEscape]:
+        result = [NoEscape(self.terms[0]['value'])]
+        for t in self.terms[1:]:
+            if t['sign'] == 1:
+                result.append(NoEscape('+'))
+            result.append(NoEscape(t['value']))
+
         return result

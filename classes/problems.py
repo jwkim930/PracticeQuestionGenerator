@@ -856,29 +856,23 @@ class EquationMultiOperation(ProblemBase):
                 while params[0] == 1:
                     params[0] = choice(candidates)   # params[0] shouldn't be 1
                 lhs = SingleVariablePolynomial(var,
-                                               sample([{'coefficient': params[0], 'exponent': 1},
-                                                      {'coefficient': params[1], 'exponent': 0}],
-                                                      2))
+                                               [{'coefficient': params[0], 'exponent': 1},
+                                                      {'coefficient': params[1], 'exponent': 0}], mix=True)
                 rhs = TextWrapper([str(params[2])])
             case 'simple_div':
                 while params[0] == 1:
                     params[0] = choice(candidates)  # params[0] shouldn't be 1
-                if random() < 0.5:
-                    lhs = TextWrapper([Command('frac', [var, params[0]]).dumps(),
-                                       '+' if params[1] > 0 else '',
-                                       str(params[1])])
-                else:
-                    lhs = TextWrapper([str(params[1]),
-                                       '+',
-                                       Command('frac', [var, params[0]]).dumps()])
+                lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(), str(params[1]), mix=True)
                 rhs = TextWrapper([str(params[2])])
             case 'simple_dist':
                 while params[0] == 1:
                     params[0] = choice(candidates)   # params[0] shouldn't be 1
                 lhs = TextWrapper([str(params[0]) if params[0] != -1 else '-',
                                    Command('left(').dumps(),
-                                   SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                         {'coefficient': params[1], 'exponent': 0}], 2)).dumps(),
+                                   SingleVariablePolynomial(var,
+                                                            [{'coefficient': 1, 'exponent': 1},
+                                                             {'coefficient': params[1], 'exponent': 0}],
+                                                            mix=True).dumps(),
                                    Command('right)').dumps()])
                 rhs = TextWrapper([str(params[2])])
             case 'double':
@@ -892,10 +886,12 @@ class EquationMultiOperation(ProblemBase):
                 params[0] = candidates.pop(randint(0, len(candidates) - 1))    # choose a first
                 params[2] = choice(candidates)
 
-                lhs = SingleVariablePolynomial(var, sample([{'coefficient': params[0], 'exponent': 1},
-                                                            {'coefficient': params[1], 'exponent': 0}], 2))
-                rhs = SingleVariablePolynomial(var, sample([{'coefficient': params[2], 'exponent': 1},
-                                                            {'coefficient': params[3], 'exponent': 0}], 2))
+                lhs = SingleVariablePolynomial(var,
+                                               [{'coefficient': params[0], 'exponent': 1},
+                                                {'coefficient': params[1], 'exponent': 0}], True)
+                rhs = SingleVariablePolynomial(var,
+                                               [{'coefficient': params[2], 'exponent': 1},
+                                                {'coefficient': params[3], 'exponent': 0}], True)
             case 'double_dist':
                 # generate parameters, making sure it has a solution
                 # a(bx + c) = d(ex + f) has a solution if ab != de
@@ -917,28 +913,25 @@ class EquationMultiOperation(ProblemBase):
 
                 lhs = TextWrapper([str(params[0]) if params[0] != -1 else '-',
                                    Command('left(').dumps(),
-                                   SingleVariablePolynomial(var, sample([{'coefficient': params[1], 'exponent': 1},
-                                                                         {'coefficient': params[2], 'exponent': 0}],
-                                                                        2)).dumps(),
+                                   SingleVariablePolynomial(var,
+                                                            [{'coefficient': params[1], 'exponent': 1},
+                                                             {'coefficient': params[2], 'exponent': 0}],
+                                                            True).dumps(),
                                    Command('right)').dumps()])
                 rhs = TextWrapper([str(params[2]) if params[2] != -1 else '-',
                                    Command('left(').dumps(),
-                                   SingleVariablePolynomial(var, sample([{'coefficient': params[3], 'exponent': 1},
-                                                                         {'coefficient': params[4], 'exponent': 0}],
-                                                                        2)).dumps(),
+                                   SingleVariablePolynomial(var,
+                                                            [{'coefficient': params[3], 'exponent': 1},
+                                                             {'coefficient': params[4], 'exponent': 0}],
+                                                            True).dumps(),
                                    Command('right)').dumps()])
             case 'double_frac':
                 for i in [0, 2, 4]:   # params[0, 2, 4] aren't supposed to be 1
                     while params[i] == 1:
                         params[i] = choice(candidates)
-                if random() < 0.5:
-                    lhs = TextWrapper([Command('frac', [var, params[0]]).dumps(),
-                                       '+',
-                                       Command('frac', [params[1], params[2]]).dumps()])
-                else:
-                    lhs = TextWrapper([Command('frac', [params[1], params[2]]).dumps(),
-                                       '+',
-                                       Command('frac', [var, params[0]]).dumps()])
+
+                lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(),
+                                       Command('frac', [params[1], params[2]]).dumps(), mix=True)
                 rhs = Fraction(params[3], params[4], big=False)
             case 'double_frac_dist':
                 # generate parameters, making sure it has a solution
@@ -961,26 +954,24 @@ class EquationMultiOperation(ProblemBase):
 
                 lhs = TextWrapper([Fraction(params[0], params[1], big=False).dumps(),
                                    Command('left(').dumps(),
-                                   SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                         {'coefficient': params[2], 'exponent': 0}], 2)).dumps(),
+                                   SingleVariablePolynomial(var,
+                                                            [{'coefficient': 1, 'exponent': 1},
+                                                             {'coefficient': params[2], 'exponent': 0}],
+                                                            True).dumps(),
                                    Command('right)').dumps()])
                 rhs = TextWrapper([Fraction(params[3], params[4], big=False).dumps(),
                                    Command('left(').dumps(),
-                                   SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                         {'coefficient': params[5], 'exponent': 0}], 2)).dumps(),
+                                   SingleVariablePolynomial(var,
+                                                            [{'coefficient': 1, 'exponent': 1},
+                                                             {'coefficient': params[5], 'exponent': 0}],
+                                                            True).dumps(),
                                    Command('right)').dumps()])
             case 'rational':
                 lhs = TextWrapper([Command('frac', [params[0], var]).dumps()])
                 rhs = TextWrapper([str(params[1])])
             case 'frac_const':
-                if random() < 0.5:
-                    lhs = TextWrapper([Command('frac', [var, params[0]]).dumps(),
-                                       '+' if params[1] > 0 else '',
-                                       str(params[1])])
-                else:
-                    lhs = TextWrapper([str(params[1]),
-                                       '+',
-                                       Command('frac', [var, params[0]]).dumps()])
+                lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(),
+                                       str(params[1]), mix=True)
                 rhs = Fraction(params[0], params[1], big=False)
             case 'bino_frac':
                 if 1 in candidates:   # b, d, f shouldn't be 1
@@ -988,16 +979,12 @@ class EquationMultiOperation(ProblemBase):
                     for i in [1, 3, 5]:
                         params[i] = choice(candidates)
 
-                if random() < 0.5:
-                    lhs = TextWrapper([Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                              {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps(),
-                                       '+',
-                                       Fraction(params[2], params[3], big=False).dumps()])
-                else:
-                    lhs = TextWrapper([Fraction(params[2], params[3], big=False).dumps(),
-                                       '+',
-                                       Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                              {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps()])
+                lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
+                                                                                 [{'coefficient': 1, 'exponent': 1},
+                                                                                  {'coefficient': params[0], 'exponent': 0}],
+                                                                                 True).dumps(),
+                                                        params[1]]).dumps(),
+                                       Fraction(params[2], params[3], big=False), mix=True)
                 rhs = Fraction(params[4], params[5], big=False)
             case 'double_bino_frac':
                 # \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f} has a solution as long as b != d
@@ -1010,30 +997,28 @@ class EquationMultiOperation(ProblemBase):
                 params[1] = candidates.pop(randint(0, len(candidates) - 1))   # choose b first
                 params[3] = choice(candidates)
 
-                lhs = TextWrapper([Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                   {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps(),
-                                   '+',
-                                   Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                  {'coefficient': params[2],
-                                                                                   'exponent': 0}], 2)).dumps(),
-                                            params[3]]).dumps()])
+                lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
+                                                                             [{'coefficient': 1, 'exponent': 1},
+                                                                              {'coefficient': params[0], 'exponent': 0}],
+                                                                             True).dumps(),
+                                                    params[1]]).dumps(),
+                                       Command('frac', [SingleVariablePolynomial(var,
+                                                                                 [{'coefficient': 1, 'exponent': 1},
+                                                                                  {'coefficient': params[2], 'exponent': 0}],
+                                                                                 True).dumps(),
+                                                        params[3]]).dumps())
                 rhs = Fraction(params[4], params[5], big=False)
             case 'bino_frac_const':
                 if 1 in candidates:   # b cannot be 1
                     candidates.remove(1)
                     params[1] = choice(candidates)
 
-                if random() < 0.5:
-                    lhs = TextWrapper([Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                              {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps(),
-                                       '+' if params[2] > 0 else '',
-                                       str(params[2])])
-                else:
-                    lhs = TextWrapper(
-                        [str(params[2]),
-                         '+',
-                         Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                              {'coefficient': params[0], 'exponent': 0}], 2)).dumps(),params[1]]).dumps()])
+                lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
+                                                                                 [{'coefficient': 1, 'exponent': 1},
+                                                                                  {'coefficient': params[0], 'exponent': 0}],
+                                                                                 True).dumps(),
+                                                        params[1]]).dumps(),
+                                       str(params[2]), mix=True)
                 rhs = Number(params[3])
             case 'double_bino_frac_large':
                 # frac{x + a}{b} + cx + d = \frac{x + e}{f} + g has a solution as long as f/b + fc != 1
@@ -1054,28 +1039,20 @@ class EquationMultiOperation(ProblemBase):
                 if params[1] == 0:
                     raise ValueError("The given nrange cannot seem to generate a double_bino_frac_large with a solution")
 
-                # each element is the list [sign, content], where sign is 1 or -1
-                # if the number is negative, then the content will still be a negative number
-                lhs_elements = sample([[1, Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                       {'coefficient': params[0], 'exponent': 0}], 2)).dumps(), params[1]]).dumps()],
-                                [1 if params[2] > 0 else -1, str(params[2]) + var],
-                                [1 if params[3] > 0 else -1, str(params[3])]], 3)
-                lhs = [lhs_elements.pop(0)[1]]
-                for elem in lhs_elements:
-                    if elem[0] == 1:
-                        lhs.append('+')
-                    lhs.append(elem[1])
-                lhs = TextWrapper(lhs)
-                if random() < 0.5:
-                    rhs = TextWrapper([Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                              {'coefficient': params[4], 'exponent': 0}], 2)).dumps(), params[5]]).dumps(),
-                                       '+' if params[6] > 0 else '',
-                                       str(params[6])])
-                else:
-                    rhs = TextWrapper([str(params[6]),
-                                       '+',
-                                       Command('frac', [SingleVariablePolynomial(var, sample([{'coefficient': 1, 'exponent': 1},
-                                                                                              {'coefficient': params[4], 'exponent': 0}], 2)).dumps(), params[5]]).dumps()])
+                lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
+                                                                                 [{'coefficient': 1, 'exponent': 1},
+                                                                                  {'coefficient': params[0], 'exponent': 0}],
+                                                                                 True).dumps(),
+                                                        params[1]]).dumps(),
+                                       SingleVariablePolynomial(var, [{'coefficient': params[2], 'exponent': 1}]).dumps(),
+                                       str(params[3]),
+                                       mix=True)
+                rhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
+                                                                                 [{'coefficient': 1, 'exponent': 1},
+                                                                                  {'coefficient': params[4], 'exponent': 0}],
+                                                                                 True).dumps(),
+                                                        params[5]]).dumps(),
+                                       str(params[6]), mix=True)
 
         if random() < 0.5:
             result = lhs.get_latex() + [middle] + rhs.get_latex()
