@@ -9,9 +9,10 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [preset.MultiOperationChallengingMix(100, (-9, 9), var=('x', 'y', 'z', 'a', 'b', 'c'))]
-prob_name = "Equation"
-prob_inst = NoEscape("Solve each of the following equations for the missing variable.")
+probs = [preset.MultiOperationChallengingMix(10, (-9, 9), ('x', 'y', 'n', 'k')),
+         preset.MultiOperationInsaneMix(10, (-9, 9), ('x', 'y', 'n', 'k'))]
+prob_name = "Advanced Equation"
+prob_inst = NoEscape("Solve the following equations for the unknown variables.")
 prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 

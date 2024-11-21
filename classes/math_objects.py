@@ -8,24 +8,22 @@ from pylatex.base_classes import LatexObject
 
 class BaseMathClass(ABC):
     @abstractmethod
-    def get_latex(self) -> list[LatexObject, str, int]:
+    def get_latex(self) -> list[LatexObject, NoEscape, int]:
         """
         Returns the LaTeX representation of the object in a list.
         """
         pass   # child class should implement this
 
-    def dumps(self) -> str:
+    def dumps(self) -> NoEscape:
         """
-        Returns the string representation of the object.
+        Returns the string representation of the object in NoEscape.
         """
-        result = ''
+        result = NoEscape()
         for l in self.get_latex():
             if isinstance(l, LatexObject):
-                result += l.dumps()
-            elif isinstance(l, str):
-                result += l
+                result += NoEscape(l.dumps())
             else:
-                result += str(l)
+                result += NoEscape(l)
         return result
 
 
@@ -97,15 +95,15 @@ class Fraction(BaseMathEntity):
         self.denom = denom
         self.big = big
 
-    def get_latex(self) -> list[Command | str]:
+    def get_latex(self) -> list[Command | NoEscape]:
         if self.sign == -1:
             if self.wrap:
                 return [Command("left("),
-                        '-',
+                        NoEscape('-'),
                         Command("dfrac" if self.big else "frac", [self.num, self.denom]),
                         Command("right)")]
             else:
-                return ['-' if self.sign == -1 else '',
+                return [NoEscape('-') if self.sign == -1 else NoEscape(),
                         Command('dfrac' if self.big else 'frac', [self.num, self.denom])]
         else:
             return [Command("dfrac" if self.big else "frac", [self.num, self.denom])]
@@ -155,17 +153,17 @@ class Number(BaseMathEntity):
         super().__init__(-1 if neg else 1, wrap)
         self.mag = num
 
-    def get_latex(self) -> list[Command | str]:
+    def get_latex(self) -> list[Command | NoEscape]:
         if self.sign == -1:
             if self.wrap:
                 return [Command("left("),
-                        '-',
-                        str(self.mag),
+                        NoEscape('-'),
+                        NoEscape(self.mag),
                         Command("right)")]
             else:
-                return ['-', str(self.mag)]
+                return [NoEscape('-'), NoEscape(self.mag)]
         else:
-            return [str(self.mag)]
+            return [NoEscape(self.mag)]
 
     def is_int(self):
         """
@@ -181,16 +179,16 @@ class Number(BaseMathEntity):
 
     def __neg__(self):
         if type(self.mag) == int:
-            return Number(-self.mag)
+            return Number(self.mag * -self.sign)
         else:
-            return Number(str(self.sign)[:-1] + str(self.mag))
+            return Number(str(-self.sign)[:-1] + str(self.mag))
 
     def __mul__(self, other):
         if isinstance(other, int):
             if type(self.mag) is int:
-                return Number(other * self.mag * self.sign)
+                return Number(self.mag * other * self.sign)
             else:
-                return Number(str(other * self.mag * self.sign))
+                return Number(str(self.mag * other * self.sign))
         elif isinstance(other, Decimal):
             return Number(str(other * self.mag * self.sign))
         elif isinstance(other, Number):
@@ -203,12 +201,54 @@ class Number(BaseMathEntity):
         else:
             raise ValueError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
+    def __int__(self):
+        return self.sign * int(self.mag)
+
+
+class Term(BaseMathEntity):
+    def __init__(self, variable: str, coefficient: str | int, exponent: int):
+        """
+        A term of a polynomial with a numerical coefficient.
+        The stored coefficient will become positive if the input coefficient was negative.
+
+        :param variable: The variable to be used.
+        :param coefficient: The coefficient of the polynomial. Use string for any non-integer values.
+        :param exponent: The exponent of this term.
+        """
+        coefficient = Number(coefficient)
+        super().__init__(coefficient.sign, False)
+        self.coefficient = coefficient if coefficient.sign == 1 else -coefficient
+        self.exponent = exponent
+        self.variable = variable
+
+    def get_latex(self) -> list[NoEscape]:
+        coe = ''
+        if self.coefficient != 1 or self.exponent == 0:
+            coe = (self.coefficient * self.sign).dumps()
+        elif self.sign == -1:
+            coe = '-'
+
+        return [NoEscape(coe),
+                NoEscape(self.variable if self.exponent != 0 else ''),
+                NoEscape('^' if self.exponent not in [0, 1] else ''),
+                NoEscape(f"{{{self.exponent}}}" if self.exponent not in [0, 1] else '')]
+
+    def __eq__(self, other):
+        if isinstance(other, Term):
+            return self.variable == other.variable and self.coefficient == other.coefficient and self.sign == other.sign
+        elif self.exponent == 0:
+            return self.coefficient * self.sign == other
+
+    def __neg__(self):
+        if type(self.coefficient.mag) is int:
+            return Term(self.variable, self.coefficient.mag * -self.sign, self.exponent)
+
 
 class SingleVariablePolynomial(BaseMathClass):
-    def __init__(self, variable: str, data: list[dict[str, int]], mix=False):
+    def __init__(self, variable: str, data: list[dict[str, int] | Term], mix=False):
         """
         A polynomial with integer coefficients and one variable.
-        The input data should be a list of dictionaries,
+        The input data can be a list of dictionaries,
         where each dictionary represents a term in the polynomial.
 
         Each dictionary must be in the following structure:
@@ -221,11 +261,6 @@ class SingleVariablePolynomial(BaseMathClass):
         }
 
         For a constant term, the exponent must be 0 and the coefficient must record the value of the constant.
-        The coefficient should be 0 if and only if the number is the constant 0.
-        In such a case, the dictionary must be:
-
-        {'coefficient': 0,
-         'exponent': 0,}
 
         Each term is assumed to be added. That is, the polynomial 4x - 2 is
         uniquely identified by the data:
@@ -239,22 +274,18 @@ class SingleVariablePolynomial(BaseMathClass):
         This object also records the degree of the polynomial.
 
         :param variable: The variable to be used.
-        :param data: The list of data as explained above.
+        :param data: The list of data as explained above, or as a Term object.
         :param mix: If True, the terms will be shuffled.
         """
         self.variable = variable
-        self.data = data
-        # check data integrity
-        for term in data:
-            c = term['coefficient']
-            e = term['exponent']
-
-            if e < 0:
-                raise ValueError(f"The term {term} has a negative exponent")
-            if c == 0 and e != 0:
-                raise ValueError(f"The term {term} has zero coefficient but nonzero exponent")
-
-        self.degree = max([d['exponent'] for d in data])
+        self.data = []
+        self.degree = float('-inf')
+        for t in data:
+            if isinstance(t, Term):
+                self.data.append(t)
+            else:
+                self.data.append(Term(variable, t['coefficient'], t['exponent']))
+            self.degree = max(self.degree, self.data[-1].exponent)
         if mix:
             shuffle(self.data)
 
@@ -286,15 +317,15 @@ class SingleVariablePolynomial(BaseMathClass):
 
         # first iteration
         term = self.data[0]
-        coe = term['coefficient']
-        exp = term['exponent']
+        coe = int(term.coefficient) * term.sign
+        exp = term.exponent
         result.append(NoEscape(term_str(self.variable, coe, exp)))
 
         # later iterations
         for i in range(1, len(self.data)):
             term = self.data[i]
-            coe = term['coefficient']
-            exp = term['exponent']
+            coe = int(term.coefficient) * term.sign
+            exp = term.exponent
             opr = '' if coe < 0 else '+'
             result.append(NoEscape(opr + term_str(self.variable, coe, exp)))
 
@@ -308,8 +339,7 @@ class SingleVariablePolynomial(BaseMathClass):
         result = []
         for sterm in self.data:
             for oterm in other.data:
-                result.append({'coefficient': sterm['coefficient'] * oterm['coefficient'],
-                               'exponent': sterm['exponent'] + oterm['exponent']})
+                result.append(Term(self.variable, int(sterm.coefficient) * int(oterm.coefficient), sterm.exponent * oterm.exponent))
         return SingleVariablePolynomial(self.variable, result)
 
 
@@ -334,12 +364,12 @@ class PolynomialFraction(BaseMathClass):
         self.sign = sign
         self.wrap = wrap
 
-    def get_latex(self) -> list[Command | str]:
-        num_text = NoEscape(self.num.dumps())
-        denom_text = NoEscape(self.denom.dumps())
+    def get_latex(self) -> list[Command | NoEscape]:
+        num_text = self.num.dumps()
+        denom_text = self.denom.dumps()
         result = [Command('dfrac', [num_text, denom_text])]
         if self.sign == -1:
-            result.insert(0, '-')
+            result.insert(0, NoEscape('-'))
         if self.wrap:
             result.insert(0, Command('left('))
             result.append(Command('right)'))
@@ -370,7 +400,7 @@ class UnsafePolynomial(BaseMathClass):
                     t['sign'] = -1
                 else:
                     t['sign'] = 1
-                t['value'] = term
+                t['value'] = NoEscape(term)
             elif isinstance(term, BaseMathEntity):
                 t['sign'] = term.sign
                 t['value'] = term.dumps()
@@ -384,10 +414,10 @@ class UnsafePolynomial(BaseMathClass):
             shuffle(self.terms)
 
     def get_latex(self) -> list[NoEscape]:
-        result = [NoEscape(self.terms[0]['value'])]
+        result = [self.terms[0]['value']]
         for t in self.terms[1:]:
             if t['sign'] == 1:
                 result.append(NoEscape('+'))
-            result.append(NoEscape(t['value']))
+            result.append(t['value'])
 
         return result

@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from pylatex import Math, Alignat, Command, Tabular, MiniPage
 from pylatex.base_classes import LatexObject
 from pylatex.utils import NoEscape
+import math
 
 from classes.math_objects import *
 
@@ -763,7 +764,7 @@ class EquationMultiOperation(ProblemBase):
         The randomly generated numbers will never be 0.
         A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
 
-        Possible equation types (the variable is always x, the rest are random. The order of terms will be randomized):
+        Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
 
         simple: ax + b = c
         simple_div: \frac{x}{a} + b = c
@@ -778,6 +779,11 @@ class EquationMultiOperation(ProblemBase):
         double_bino_frac: \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f}
         bino_frac_const: \frac{x + a}{b} + c = d
         double_bino_frac_large: \frac{x + a}{b} + cx + d = \frac{x + e}{f} + g
+        insane_1: \frac{abx^(k+1) + acx^k}{ax^k} = d(ex + f + gx), where k in [1, 5]
+        insane_2: \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex
+        insane_3: \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number that makes the coefficient a perfect square
+        insane_4: (ax + b)^2 = (ox + c)^2 + d, where o == a or o == -a
+        insane_5: ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f)
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -786,7 +792,7 @@ class EquationMultiOperation(ProblemBase):
                       If nothing is given, every type can appear.
         :param var: The potential variables to be used. The default is just x.
         :param inequality: If True, the problems will be inequality problems instead.
-                           One of the four inequality will be randomly chosen for each question.
+                           One of the four inequalities will be randomly chosen for each question.
         """
         super().__init__(num_quest, '6cm')
         possible_types = ('simple',
@@ -801,7 +807,12 @@ class EquationMultiOperation(ProblemBase):
                           'bino_frac',
                           'double_bino_frac',
                           'bino_frac_const',
-                          'double_bino_frac_large')
+                          'double_bino_frac_large',
+                          'insane_1',
+                          'insane_2',
+                          'insane_3',
+                          'insane_4',
+                          'insane_5')
 
         if nrange[0] > nrange[1]:
             raise ValueError("The given range does not contain any integer")
@@ -1053,6 +1064,160 @@ class EquationMultiOperation(ProblemBase):
                                                                                  True).dumps(),
                                                         params[5]]).dumps(),
                                        str(params[6]), mix=True)
+            case 'insane_1':
+                # \frac{abx^(k+1) + acx^k}{ax^k} = d(ex + f + gx) has a solution as long as b != d(e + g) and c != df
+                k = randint(1, 5)
+                params = [0, 0, 0, 0, 0, 0, 0]
+                for i in [0, 4, 5, 6]:   # these don't matter
+                    params[i] = choice(candidates)
+                for _ in range(100):
+                    b = choice(candidates)
+                    c = choice(candidates)
+                    d = choice(candidates)
+                    if d != 1 and b != d * (params[4] + params[6]) and c != d * params[5]:
+                        params[1] = b
+                        params[2] = c
+                        params[3] = d
+                        break
+                if params[1] == 0:
+                    raise ValueError("The given nrange cannot seem to generate an insane_1 with a solution")
+
+                lhs = UnsafePolynomial(PolynomialFraction(SingleVariablePolynomial(var,
+                                                                                   [{'coefficient': params[0] * params[1],
+                                                                                     'exponent': k + 1},
+                                                                                    {'coefficient': params[0] * params[2],
+                                                                                     'exponent': k}], mix=True),
+                                                          SingleVariablePolynomial(var,
+                                                                                   [{'coefficient': params[0],
+                                                                                     'exponent': k}])))
+                rhs = TextWrapper(["{}({})".format(params[3] if params[3] != -1 else '-',
+                                                   SingleVariablePolynomial(var,
+                                                                            [{'coefficient': params[4],
+                                                                              'exponent': 1},
+                                                                             {'coefficient': params[5],
+                                                                              'exponent': 0},
+                                                                             {'coefficient': params[6],
+                                                                              'exponent': 1}]).dumps())])
+            case 'insane_2':
+                # \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex has a solution as long as e != abd/10
+                params = [0, 0, 0, 0, 0]
+                for i in range(3):
+                    params[i] = choice(candidates)
+                candidates.remove(1)   # d and e should't be 1
+                params[3] = choice(candidates)
+                if (params[0] * params[1] * params[3]) % 10 == 0:
+                    try:
+                        candidates.remove((params[0] * params[1] * params[3]) // 10)
+                    except ValueError:
+                        pass   # no candidate results in an ill-defined equation
+                params[4] = choice(candidates)
+
+                sign_1 = choice([-1, 1])   # sign to be used for lhs
+                sign_2 = choice([-1, 1])   # sign to be used for rhs
+                if random() < 0.5:
+                    lhs = TextWrapper([Command('sqrt',
+                                               "({})({})".format(Term(var, str(Decimal(params[0] ** 2) / 100 * sign_1), 1).dumps(),
+                                                                 Term(var, (params[1] ** 2) * sign_1, 1).dumps())).dumps()])
+                else:
+                    lhs = TextWrapper([Command('sqrt',
+                                               "({})({})".format(Term(var, (params[1] ** 2) * sign_1, 1).dumps(),
+                                                                 Term(var, str(Decimal(params[0] ** 2) / 100 * sign_1), 1).dumps())).dumps()])
+                rhs = UnsafePolynomial(Command('sqrt', Fraction(sign_2 * (params[2] ** 2),
+                                                                sign_2 * (params[3] ** 2), big=False).dumps()).dumps(),
+                                       Term(var, params[4], 1), mix=True)
+            case 'insane_3':
+                # \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number such that ab + n is a perfect square
+                # this has a solution as long as sqrt(ab + n) + c != 1
+                params = [0, 0, 0, 0]
+                n = 0
+                params[3] = choice(candidates)   # d doesn't matter
+                candidates.remove(1)   # the rest shouldn't be 1
+                for _ in range(100):
+                    a = choice(candidates)
+                    b = choice(candidates)
+                    if a < 0:
+                        b = -abs(b)
+                    else:
+                        b = abs(b)
+                    c = choice(candidates)
+                    k = math.sqrt(a * b)
+                    if k % 1 < 0.0001:
+                        # ab is perfect square
+                        n = (math.ceil(k) + 1) ** 2 - (a * b)
+                    else:
+                        n = math.ceil(k) ** 2 - (a * b)
+                    if not abs(math.sqrt(a*b + n) + c - 1) < 0.0001:
+                        params[0] = a
+                        params[1] = b
+                        params[2] = c
+                        break
+                if params[0] == 0:
+                    raise ValueError("The given nrange cannot seem to generate an insane_3 with a solution")
+
+                lhs = UnsafePolynomial(Command('sqrt',
+                                               UnsafePolynomial("({})({})".format(Term(var, params[0], 1).dumps(),
+                                                                                  Term(var, params[1], 1).dumps()),
+                                                                Term(var, n, 2), mix=True).dumps()).dumps(),
+                                       Term(var, params[2], 1), mix=True)
+                rhs = TextWrapper([Command('sqrt',
+                                           NoEscape("({})^2".format(SingleVariablePolynomial(var, [{'coefficient': 1, 'exponent': 1},
+                                                                                                   {'coefficient': params[3], 'exponent': 0}], mix=True).dumps()))).dumps()])
+            case 'insane_4':
+                # (ax + b)^2 = (ax + c)^2 + d has a solution as long as b != c
+                # (ax + b)^2 = (-ax + c)^2 + d has a solution as long as b != -c
+                params = [0, 0, 0, 0]
+                for i in [0, 3]:   # these don't matter
+                    params[i] = choice(candidates)
+                flipped = choice([True, False])
+                o = -params[0] if flipped else params[0]
+                for _ in range(100):
+                    b = choice(candidates)
+                    c = choice(candidates)
+                    if (not flipped and b != c) or (flipped and b != -c):
+                        params[1] = b
+                        params[2] = c
+                        break
+                if params[0] == 0:
+                    raise ValueError("The given nrange cannot seem to generate an insane_4 with a solution")
+
+                lhs = TextWrapper(["({})^2".format(SingleVariablePolynomial(var, [{'coefficient': params[0], 'exponent': 1},
+                                                                                  {'coefficient': params[1], 'exponent': 0}],
+                                                                            mix=True).dumps())])
+                rhs = UnsafePolynomial(TextWrapper(["({})^2".format(SingleVariablePolynomial(var, [{'coefficient': o, 'exponent': 1},
+                                                                                                   {'coefficient': params[2], 'exponent': 0}],
+                                                                                             mix=True).dumps())]),
+                                       Number(params[3]))
+            case 'insane_5':
+                # ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f) has a solution as long as d(10a + b) != 10ce
+                params = [0, 0, 0, 0, 0, 0]
+                params[5] = choice(candidates)   # this doesn't matter
+                for _ in range(100):
+                    b = choice(candidates)
+                    c = choice(candidates)
+                    candidates.remove(1)   # a, d, e shouldn't be 1
+                    a = choice(candidates)
+                    d = choice(candidates)
+                    e = choice(candidates)
+                    if d * (10*a + b) != 10 * c * e:
+                        params[0] = a
+                        params[1] = b
+                        params[2] = c
+                        params[3] = d
+                        params[4] = e
+                        break
+                    candidates.append(1)   # b and c can still be 1
+                if params[0] == 0:
+                    raise ValueError("The given nrange cannot seem to generate an insane_4 with a solution")
+
+                lhs = UnsafePolynomial(Term(var, params[0], 1),
+                                       Command('sqrt',
+                                               Term(var,
+                                                    str(Decimal(params[1] ** 2) / 100),
+                                                    2).dumps()).dumps())
+                rhs = TextWrapper([Command('sqrt',
+                                           Fraction(params[2] ** 2, params[3] ** 2, big=False).dumps()).dumps(),
+                                   "({})".format(SingleVariablePolynomial(var, [{'coefficient': params[4], 'exponent': 1},
+                                                                                {'coefficient': params[5], 'exponent': 0}]).dumps())])
 
         if random() < 0.5:
             result = lhs.get_latex() + [middle] + rhs.get_latex()
