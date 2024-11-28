@@ -40,12 +40,12 @@ multi_operation_double_test = [problems.EquationMultiOperation(2, (-5, 5), 'doub
 
 
 class MultiOperationBasicMix(problems.EquationMultiOperation):
-    def __init___(self, num_quest: int, nrange: tuple[int, int], var=('x',), inequality=False):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], var=('x',), inequality=False):
         super().__init__(num_quest, nrange, 'simple', 'simple_div', 'simple_dist', var=var, inequality=inequality)
 
 
 class MultiOperationAdvancedMix(problems.EquationMultiOperation):
-    def __init___(self, num_quest: int, nrange: tuple[int, int], var=('x',), inequality=False):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], var=('x',), inequality=False):
         super().__init__(num_quest, nrange, 'double', 'double_dist', 'double_frac', 'double_frac_dist', 'rational', var=var, inequality=inequality)
 
 

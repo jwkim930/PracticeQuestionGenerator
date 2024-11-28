@@ -1,4 +1,4 @@
-from random import randint, choice, shuffle, random, sample
+from random import randint, choice, shuffle, random, sample, choices
 from decimal import Decimal
 from abc import ABC, abstractmethod
 
@@ -780,10 +780,10 @@ class EquationMultiOperation(ProblemBase):
         bino_frac_const: \frac{x + a}{b} + c = d
         double_bino_frac_large: \frac{x + a}{b} + cx + d = \frac{x + e}{f} + g
         insane_1: \frac{abx^(k+1) + acx^k}{ax^k} = d(ex + f + gx), where k in [1, 5]
-        insane_2: \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex
+        insane_2: \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex, x >= 0
         insane_3: \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number that makes the coefficient a perfect square
-        insane_4: (ax + b)^2 = (ox + c)^2 + d, where o == a or o == -a
-        insane_5: ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f)
+        insane_4: (ax + b)^2 = (ox + c)^2 + d, where o == a or o == -a, x >= 0
+        insane_5: ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f), x >= 0
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -834,6 +834,31 @@ class EquationMultiOperation(ProblemBase):
         self.var = var
         self.inequality = inequality
 
+    def draws(self, size: int, *blacklist: int) -> tuple[int, ...]:
+        """
+        Generates random numbers based on the nrange.
+        Returns an empty tuple if size is 0.
+        0 is never generated.
+
+        :param size: The number of random numbers to generate.
+        :param blacklist: These integers will not be generated.
+        """
+        if size == 0:
+            return tuple()
+        candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n != 0 and n not in blacklist]
+        if not candidates:
+            raise ValueError("no number can be drawn")
+        return tuple(choices(candidates, k=size))
+
+    def draw(self, *blacklist: int) -> int:
+        """
+        Generates a random number based on the nrange.
+        0 is never generated.
+
+        :param blacklist: These integers will not be generated.
+        """
+        return self.draws(1, *blacklist)[0]
+
     def get_problem(self) -> Math:
         if self.inequality:
             middle = choice(['>', '<', Command('geq'), Command('leq')])
@@ -841,43 +866,46 @@ class EquationMultiOperation(ProblemBase):
             middle = '='
         var = choice(self.var)
         prob_type = choice(self.types)
-        candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n != 0]
         num_params = 0
 
-        # some problem types are skipped to prevent having no solution
-        if prob_type in ('simple', 'simple_div', 'simple_dist'):
-            num_params = 3
-        elif prob_type == 'double_frac':
-            num_params = 5
-        elif prob_type == 'rational':
-            num_params = 2
-        elif prob_type in ('frac_const', 'bino_frac_const'):
-            num_params = 4
-        elif prob_type == 'bino_frac':
-            num_params = 6
+        match prob_type:
+            case 'rational':
+                num_params = 2
+            case 'simple' | 'simple_div' | 'simple_dist':
+                num_params = 3
+            case 'double' | 'frac_const' | 'bino_frac_const' | 'insane_3' | 'insane_4':
+                num_params = 4
+            case 'double_frac' | 'insane_2':
+                num_params = 5
+            case 'double_dist' | 'double_frac_dist' | 'bino_frac' | 'double_bino_frac' | 'insane_5':
+                num_params = 6
+            case 'double_bino_frac_large' | 'insane_1':
+                num_params = 7
 
-        params = []
-        for _ in range(num_params):
-            params.append(choice(candidates))
+        params = [0 for _ in range(num_params)]
         lhs = None
         rhs = None
+        disclaimer = [NoEscape(rf", {var} \geq 0")] if prob_type in ["insane_2", "insane_3", "insane_5"] else []
 
         match prob_type:
             case 'simple':
-                while params[0] == 1:
-                    params[0] = choice(candidates)   # params[0] shouldn't be 1
+                params[0] = self.draw(1)   # params[0] shouldn't be 1
+                params[1], params[2] = self.draws(2)
+
                 lhs = SingleVariablePolynomial(var,
                                                [{'coefficient': params[0], 'exponent': 1},
                                                       {'coefficient': params[1], 'exponent': 0}], mix=True)
                 rhs = TextWrapper([str(params[2])])
             case 'simple_div':
-                while params[0] == 1:
-                    params[0] = choice(candidates)  # params[0] shouldn't be 1
+                params[0] = self.draw(1)   # params[0] shouldn't be 1
+                params[1], params[2] = self.draws(2)
+
                 lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(), str(params[1]), mix=True)
                 rhs = TextWrapper([str(params[2])])
             case 'simple_dist':
-                while params[0] == 1:
-                    params[0] = choice(candidates)   # params[0] shouldn't be 1
+                params[0] = self.draw(1)   # params[0] shouldn't be 1
+                params[1], params[2] = self.draws(2)
+
                 lhs = TextWrapper([str(params[0]) if params[0] != -1 else '-',
                                    Command('left(').dumps(),
                                    SingleVariablePolynomial(var,
@@ -887,15 +915,10 @@ class EquationMultiOperation(ProblemBase):
                                    Command('right)').dumps()])
                 rhs = TextWrapper([str(params[2])])
             case 'double':
-                # generate parameters, making sure it has a solution
                 # ax + b = cx + d has a solution if a != c
-                params = [0, 0, 0, 0]
-                for i in [1, 3]:   # these don't matter
-                    params[i] = choice(candidates)
-                if 1 in candidates:
-                    candidates.remove(1)   # a and c shouldn't be 1
-                params[0] = candidates.pop(randint(0, len(candidates) - 1))    # choose a first
-                params[2] = choice(candidates)
+                params[1], params[3] = self.draws(2)   # these don't matter
+                params[0] = self.draw(1)   # a shouldn't be 1
+                params[2] = self.draw(1, params[0])   # c shouldn't be 1 or a
 
                 lhs = SingleVariablePolynomial(var,
                                                [{'coefficient': params[0], 'exponent': 1},
@@ -906,15 +929,10 @@ class EquationMultiOperation(ProblemBase):
             case 'double_dist':
                 # generate parameters, making sure it has a solution
                 # a(bx + c) = d(ex + f) has a solution if ab != de
-                params = [0, 0, 0, 0, 0, 0]
-                for i in [2, 5]:   # c, f don't matter
-                    params[i] = choice(candidates)
-                if 1 in candidates:
-                    candidates.remove(1)   # a, b, d, e shouldn't be 1
-                for i in [0, 1]:   # draw a, b first
-                    params[i] = choice(candidates)
+                params[2], params[5] = self.draws(2)   # c, f don't matter
+                params[0], params[1] = self.draws(2, 1)   # a, b shouldn't be 1
                 for _ in range(100):
-                    d, e = choice(candidates), choice(candidates)
+                    d, e = self.draws(2, 1)   # d, e shouldn't be 1
                     if d * e != params[0] * params[1]:
                         params[3] = d
                         params[4] = e
@@ -937,25 +955,18 @@ class EquationMultiOperation(ProblemBase):
                                                             True).dumps(),
                                    Command('right)').dumps()])
             case 'double_frac':
-                for i in [0, 2, 4]:   # params[0, 2, 4] aren't supposed to be 1
-                    while params[i] == 1:
-                        params[i] = choice(candidates)
+                params[1], params[3] = self.draws(2)
+                params[0], params[2], params[4] = self.draws(3, 1)   # these shouldn't be 1
 
                 lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(),
                                        Command('frac', [params[1], params[2]]).dumps(), mix=True)
                 rhs = Fraction(params[3], params[4], big=False)
             case 'double_frac_dist':
-                # generate parameters, making sure it has a solution
                 # \frac{a}{b}(x + c) = \frac{d}{e}(x + f) has a solution if a/b != d/e
-                params = [0, 0, 0, 0, 0, 0]
-                for i in [0, 1, 2, 5]:   # draw a, b first; c, f don't matter
-                    params[i] = choice(candidates)
-                while params[1] == 1:   # b shouldn't be 1
-                    params[1] = choice(candidates)
+                params[0], params[2], params[5] = self.draws(3)
+                params[1] = self.draw(1)   # b shouldn't be 1
                 for _ in range(100):
-                    d, e = choice(candidates), choice(candidates)
-                    while e == 1:   # e shouldn't be 1
-                        e = choice(candidates)
+                    d, e = self.draw(), self.draw(1)   # e shouldn't be 1
                     if d/e != params[0]/params[1]:
                         params[3] = d
                         params[4] = e
@@ -978,17 +989,20 @@ class EquationMultiOperation(ProblemBase):
                                                             True).dumps(),
                                    Command('right)').dumps()])
             case 'rational':
+                params[0], params[1] = self.draws(2)
+
                 lhs = TextWrapper([Command('frac', [params[0], var]).dumps()])
                 rhs = TextWrapper([str(params[1])])
             case 'frac_const':
+                params[1], params[2] = self.draws(2)
+                params[0], params[3] = self.draws(2, 1)   # a and d shouldn't be 1
+
                 lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(),
                                        str(params[1]), mix=True)
                 rhs = Fraction(params[0], params[1], big=False)
             case 'bino_frac':
-                if 1 in candidates:   # b, d, f shouldn't be 1
-                    candidates.remove(1)
-                    for i in [1, 3, 5]:
-                        params[i] = choice(candidates)
+                params[0], params[2], params[4] = self.draws(3)
+                params[1], params[3], params[5] = self.draws(3, 1)
 
                 lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
                                                                                  [{'coefficient': 1, 'exponent': 1},
@@ -999,14 +1013,9 @@ class EquationMultiOperation(ProblemBase):
                 rhs = Fraction(params[4], params[5], big=False)
             case 'double_bino_frac':
                 # \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f} has a solution as long as b != d
-                params = [0, 0, 0, 0, 0, 0]
-                for i in [0, 2, 4]:   # these don't matter
-                    params[i] = choice(candidates)
-                if 1 in candidates:   # b, d, f shouldn't be 1
-                    candidates.remove(1)
-                params[5] = choice(candidates)
-                params[1] = candidates.pop(randint(0, len(candidates) - 1))   # choose b first
-                params[3] = choice(candidates)
+                params[0], params[2], params[4] = self.draws(3)
+                params[1], params[5] = self.draws(2, 1)   # b, f shouldn't be 1
+                params[3] = self.draw(1, params[1])   # d shouldn't be 1 or b
 
                 lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
                                                                              [{'coefficient': 1, 'exponent': 1},
@@ -1020,9 +1029,8 @@ class EquationMultiOperation(ProblemBase):
                                                         params[3]]).dumps())
                 rhs = Fraction(params[4], params[5], big=False)
             case 'bino_frac_const':
-                if 1 in candidates:   # b cannot be 1
-                    candidates.remove(1)
-                    params[1] = choice(candidates)
+                params[0], params[2], params[3] = self.draws(3)
+                params[1] = self.draw(1)
 
                 lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
                                                                                  [{'coefficient': 1, 'exponent': 1},
@@ -1033,15 +1041,9 @@ class EquationMultiOperation(ProblemBase):
                 rhs = Number(params[3])
             case 'double_bino_frac_large':
                 # frac{x + a}{b} + cx + d = \frac{x + e}{f} + g has a solution as long as f/b + fc != 1
-                params = [0, 0, 0, 0, 0, 0, 0]
-                for i in [0, 3, 4, 6]:   # these don't matter
-                    params[i] = choice(candidates)
-                if 1 in candidates:   # b, c, f shouldn't be 1
-                    candidates.remove(1)
+                params[0], params[3], params[4], params[6] = self.draws(4)
                 for _ in range(100):
-                    b = choice(candidates)
-                    c = choice(candidates)
-                    f = choice(candidates)
+                    b, c, f = self.draws(3, 1)   # these shouldn't be 1
                     if f/b + f*c != 1:
                         params[1] = b
                         params[2] = c
@@ -1067,14 +1069,11 @@ class EquationMultiOperation(ProblemBase):
             case 'insane_1':
                 # \frac{abx^(k+1) + acx^k}{ax^k} = d(ex + f + gx) has a solution as long as b != d(e + g) and c != df
                 k = randint(1, 5)
-                params = [0, 0, 0, 0, 0, 0, 0]
-                for i in [0, 4, 5, 6]:   # these don't matter
-                    params[i] = choice(candidates)
+                params[0], params[4], params[5], params[6] = self.draws(4)
                 for _ in range(100):
-                    b = choice(candidates)
-                    c = choice(candidates)
-                    d = choice(candidates)
-                    if d != 1 and b != d * (params[4] + params[6]) and c != d * params[5]:
+                    b, c = self.draws(2)
+                    d = self.draw(1)   # d shouldn't be 1
+                    if b != d * (params[4] + params[6]) and c != d * params[5]:
                         params[1] = b
                         params[2] = c
                         params[3] = d
@@ -1100,53 +1099,51 @@ class EquationMultiOperation(ProblemBase):
                                                                               'exponent': 1}]).dumps())])
             case 'insane_2':
                 # \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex has a solution as long as e != abd/10
-                params = [0, 0, 0, 0, 0]
-                for i in range(3):
-                    params[i] = choice(candidates)
-                candidates.remove(1)   # d and e should't be 1
-                params[3] = choice(candidates)
-                if (params[0] * params[1] * params[3]) % 10 == 0:
-                    try:
-                        candidates.remove((params[0] * params[1] * params[3]) // 10)
-                    except ValueError:
-                        pass   # no candidate results in an ill-defined equation
-                params[4] = choice(candidates)
+                # x >= 0 if e <= |ab|/10
+                params[2] = self.draw()
+                for _ in range(100):
+                    a, b = self.draws(2)
+                    d = self.draw(-1, 1, params[2])   # d shouldn't be +-1 or c
+                    if (a * b * d) % 10 == 0:   # since e is an integer, first condition is clear if this doesn't hold
+                        e = self.draw(1, (params[0] * params[1] * params[3]) // 10)
+                    else:
+                        e = self.draw(1)
+                    if e <= abs(a*b) / 10:
+                        params[0] = a
+                        params[1] = b
+                        params[3] = d
+                        params[4] = e
+                        break
+                if params[0] == 0:
+                    raise ValueError("The given nrange cannot seem to generate an insane_1 with a solution")
 
-                sign_1 = choice([-1, 1])   # sign to be used for lhs
-                sign_2 = choice([-1, 1])   # sign to be used for rhs
                 if random() < 0.5:
                     lhs = TextWrapper([Command('sqrt',
-                                               "({})({})".format(Term(var, str(Decimal(params[0] ** 2) / 100 * sign_1), 1).dumps(),
-                                                                 Term(var, (params[1] ** 2) * sign_1, 1).dumps())).dumps()])
+                                               "({})({})".format(Term(var, str(Decimal(params[0] ** 2) / 100), 1).dumps(),
+                                                                 Term(var, (params[1] ** 2), 1).dumps())).dumps()])
                 else:
                     lhs = TextWrapper([Command('sqrt',
-                                               "({})({})".format(Term(var, (params[1] ** 2) * sign_1, 1).dumps(),
-                                                                 Term(var, str(Decimal(params[0] ** 2) / 100 * sign_1), 1).dumps())).dumps()])
-                rhs = UnsafePolynomial(Command('sqrt', Fraction(sign_2 * (params[2] ** 2),
-                                                                sign_2 * (params[3] ** 2), big=False).dumps()).dumps(),
+                                               "({})({})".format(Term(var, (params[1] ** 2), 1).dumps(),
+                                                                 Term(var, str(Decimal(params[0] ** 2) / 100), 1).dumps())).dumps()])
+                rhs = UnsafePolynomial(Command('sqrt', Fraction(params[2] ** 2,
+                                                                params[3] ** 2, big=False).dumps()).dumps(),
                                        Term(var, params[4], 1), mix=True)
             case 'insane_3':
                 # \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number such that ab + n is a perfect square
                 # this has a solution as long as sqrt(ab + n) + c != 1
-                params = [0, 0, 0, 0]
-                n = 0
-                params[3] = choice(candidates)   # d doesn't matter
-                candidates.remove(1)   # the rest shouldn't be 1
+                # x + d >= 0 holds if x >= 0 and d >= 0
+                # x >= 0 requires \sqrt{ab + n} + c - 1 >= 0 if d >= 0
+                params[3] = self.draw(*tuple([n for n in range(self.nrange[0], self.nrange[1]) if n < 0]))
                 for _ in range(100):
-                    a = choice(candidates)
-                    b = choice(candidates)
-                    if a < 0:
-                        b = -abs(b)
-                    else:
-                        b = abs(b)
-                    c = choice(candidates)
+                    a, b, c = self.draws(3, 1)
+                    if a * b < 0:
+                        b = -b   # a and b should have the same sign
                     k = math.sqrt(a * b)
-                    if k % 1 < 0.0001:
-                        # ab is perfect square
-                        n = (math.ceil(k) + 1) ** 2 - (a * b)
+                    if k % 1 < 0.0001:   # ab is a perfect square
+                        n = (round(k) + 1) ** 2 - (a * b)
                     else:
                         n = math.ceil(k) ** 2 - (a * b)
-                    if not abs(math.sqrt(a*b + n) + c - 1) < 0.0001:
+                    if math.sqrt(a*b + n) + c - 1 >= 0.0001 :
                         params[0] = a
                         params[1] = b
                         params[2] = c
@@ -1165,14 +1162,11 @@ class EquationMultiOperation(ProblemBase):
             case 'insane_4':
                 # (ax + b)^2 = (ax + c)^2 + d has a solution as long as b != c
                 # (ax + b)^2 = (-ax + c)^2 + d has a solution as long as b != -c
-                params = [0, 0, 0, 0]
-                for i in [0, 3]:   # these don't matter
-                    params[i] = choice(candidates)
+                params[0], params[3] = self.draws(2)
                 flipped = choice([True, False])
                 o = -params[0] if flipped else params[0]
                 for _ in range(100):
-                    b = choice(candidates)
-                    c = choice(candidates)
+                    b, c = self.draws(2)
                     if (not flipped and b != c) or (flipped and b != -c):
                         params[1] = b
                         params[2] = c
@@ -1189,23 +1183,18 @@ class EquationMultiOperation(ProblemBase):
                                        Number(params[3]))
             case 'insane_5':
                 # ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f) has a solution as long as d(10a + b) != 10ce
-                params = [0, 0, 0, 0, 0, 0]
-                params[5] = choice(candidates)   # this doesn't matter
+                # x >= 0 requires f / (10a|d| + |bd| - 10|c|e) >= 0
                 for _ in range(100):
-                    b = choice(candidates)
-                    c = choice(candidates)
-                    candidates.remove(1)   # a, d, e shouldn't be 1
-                    a = choice(candidates)
-                    d = choice(candidates)
-                    e = choice(candidates)
-                    if d * (10*a + b) != 10 * c * e:
+                    b, c, f = self.draws(3)
+                    a, d, e = self.draws(3, 1)
+                    if d * (10*a + b) != 10 * c * e and f / (10*a*abs(d) + abs(b*d) - 10*abs(c)*e) >= 0:
                         params[0] = a
                         params[1] = b
                         params[2] = c
                         params[3] = d
                         params[4] = e
+                        params[5] = f
                         break
-                    candidates.append(1)   # b and c can still be 1
                 if params[0] == 0:
                     raise ValueError("The given nrange cannot seem to generate an insane_4 with a solution")
 
@@ -1220,9 +1209,9 @@ class EquationMultiOperation(ProblemBase):
                                                                                 {'coefficient': params[5], 'exponent': 0}]).dumps())])
 
         if random() < 0.5:
-            result = lhs.get_latex() + [middle] + rhs.get_latex()
+            result = lhs.get_latex() + [middle] + rhs.get_latex() + [NoEscape("\\quad")] + disclaimer
         else:
-            result = rhs.get_latex() + [middle] + lhs.get_latex()
+            result = rhs.get_latex() + [middle] + lhs.get_latex() + [NoEscape("\\quad")] + disclaimer
 
         self.num_quest -= 1
         return Math(inline=True, data=result)
