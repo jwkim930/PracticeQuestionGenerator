@@ -780,10 +780,10 @@ class EquationMultiOperation(ProblemBase):
         bino_frac_const: \frac{x + a}{b} + c = d
         double_bino_frac_large: \frac{x + a}{b} + cx + d = \frac{x + e}{f} + g
         insane_1: \frac{abx^(k+1) + acx^k}{ax^k} = d(ex + f + gx), where k in [1, 5]
-        insane_2: \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex
+        insane_2: \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex, x >= 0
         insane_3: \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number that makes the coefficient a perfect square
-        insane_4: (ax + b)^2 = (ox + c)^2 + d, where o == a or o == -a
-        insane_5: ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f)
+        insane_4: (ax + b)^2 = (ox + c)^2 + d, where o == a or o == -a, x >= 0
+        insane_5: ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f), x >= 0
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -861,6 +861,7 @@ class EquationMultiOperation(ProblemBase):
             params.append(choice(candidates))
         lhs = None
         rhs = None
+        disclaimer = [NoEscape(r", x \geq 0")] if prob_type in ["insane_2", "insane_4", "insane_5"] else []
 
         match prob_type:
             case 'simple':
@@ -1100,10 +1101,12 @@ class EquationMultiOperation(ProblemBase):
                                                                               'exponent': 1}]).dumps())])
             case 'insane_2':
                 # \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex has a solution as long as e != abd/10
+                # x >= 0 if a, b, c, d >= 0
                 params = [0, 0, 0, 0, 0]
+                candidates = [n for n in candidates if n >= 0]
                 for i in range(3):
                     params[i] = choice(candidates)
-                candidates.remove(1)   # d and e should't be 1
+                candidates.remove(1)   # d and e shouldn't be 1
                 params[3] = choice(candidates)
                 if (params[0] * params[1] * params[3]) % 10 == 0:
                     try:
@@ -1111,19 +1114,16 @@ class EquationMultiOperation(ProblemBase):
                     except ValueError:
                         pass   # no candidate results in an ill-defined equation
                 params[4] = choice(candidates)
-
-                sign_1 = choice([-1, 1])   # sign to be used for lhs
-                sign_2 = choice([-1, 1])   # sign to be used for rhs
                 if random() < 0.5:
                     lhs = TextWrapper([Command('sqrt',
-                                               "({})({})".format(Term(var, str(Decimal(params[0] ** 2) / 100 * sign_1), 1).dumps(),
-                                                                 Term(var, (params[1] ** 2) * sign_1, 1).dumps())).dumps()])
+                                               "({})({})".format(Term(var, str(Decimal(params[0] ** 2) / 100), 1).dumps(),
+                                                                 Term(var, (params[1] ** 2), 1).dumps())).dumps()])
                 else:
                     lhs = TextWrapper([Command('sqrt',
-                                               "({})({})".format(Term(var, (params[1] ** 2) * sign_1, 1).dumps(),
-                                                                 Term(var, str(Decimal(params[0] ** 2) / 100 * sign_1), 1).dumps())).dumps()])
-                rhs = UnsafePolynomial(Command('sqrt', Fraction(sign_2 * (params[2] ** 2),
-                                                                sign_2 * (params[3] ** 2), big=False).dumps()).dumps(),
+                                               "({})({})".format(Term(var, (params[1] ** 2), 1).dumps(),
+                                                                 Term(var, str(Decimal(params[0] ** 2) / 100), 1).dumps())).dumps()])
+                rhs = UnsafePolynomial(Command('sqrt', Fraction(params[2] ** 2,
+                                                                params[3] ** 2, big=False).dumps()).dumps(),
                                        Term(var, params[4], 1), mix=True)
             case 'insane_3':
                 # \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number such that ab + n is a perfect square
@@ -1220,9 +1220,9 @@ class EquationMultiOperation(ProblemBase):
                                                                                 {'coefficient': params[5], 'exponent': 0}]).dumps())])
 
         if random() < 0.5:
-            result = lhs.get_latex() + [middle] + rhs.get_latex()
+            result = lhs.get_latex() + [middle] + rhs.get_latex() + disclaimer
         else:
-            result = rhs.get_latex() + [middle] + lhs.get_latex()
+            result = rhs.get_latex() + [middle] + lhs.get_latex() + disclaimer
 
         self.num_quest -= 1
         return Math(inline=True, data=result)
