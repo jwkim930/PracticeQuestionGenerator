@@ -1,4 +1,4 @@
-from random import randint, choice, shuffle, random, sample
+from random import randint, choice, shuffle, random, sample, choices
 from decimal import Decimal
 from abc import ABC, abstractmethod
 
@@ -834,6 +834,28 @@ class EquationMultiOperation(ProblemBase):
         self.var = var
         self.inequality = inequality
 
+    def draws(self, size: int, *blacklist: int) -> tuple[int, ...]:
+        """
+        Generates random numbers based on the nrange.
+        0 is never generated.
+
+        :params size: The number of random numbers to generate.
+        :params blacklist: These integers will not be generated.
+        """
+        candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n != 0 and n not in blacklist]
+        if not candidates:
+            raise ValueError("no number can be drawn")
+        return tuple(choices(candidates, k=size))
+
+    def draw(self, *blacklist: int) -> int:
+        """
+        Generates a random number based on the nrange.
+        0 is never generated.
+
+        :params blacklist: These integers will not be generated.
+        """
+        return self.draws(1, *blacklist)[0]
+
     def get_problem(self) -> Math:
         if self.inequality:
             middle = choice(['>', '<', Command('geq'), Command('leq')])
@@ -1210,23 +1232,19 @@ class EquationMultiOperation(ProblemBase):
                                        Number(params[3]))
             case 'insane_5':
                 # ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f) has a solution as long as d(10a + b) != 10ce
+                # x >= 0 requires f / (10a|d| + |bd| - 10|c|e) >= 0
                 params = [0, 0, 0, 0, 0, 0]
-                params[5] = choice(candidates)   # this doesn't matter
                 for _ in range(100):
-                    b = choice(candidates)
-                    c = choice(candidates)
-                    candidates.remove(1)   # a, d, e shouldn't be 1
-                    a = choice(candidates)
-                    d = choice(candidates)
-                    e = choice(candidates)
-                    if d * (10*a + b) != 10 * c * e:
+                    b, c, f = self.draws(3)
+                    a, d, e = self.draws(3, 1)
+                    if d * (10*a + b) != 10 * c * e and f / (10*a*abs(d) + abs(b*d) - 10*abs(c)*e) >= 0:
                         params[0] = a
                         params[1] = b
                         params[2] = c
                         params[3] = d
                         params[4] = e
+                        params[5] = f
                         break
-                    candidates.append(1)   # b and c can still be 1
                 if params[0] == 0:
                     raise ValueError("The given nrange cannot seem to generate an insane_4 with a solution")
 
