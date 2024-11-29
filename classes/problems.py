@@ -861,7 +861,7 @@ class EquationMultiOperation(ProblemBase):
             params.append(choice(candidates))
         lhs = None
         rhs = None
-        disclaimer = [NoEscape(r", x \geq 0")] if prob_type in ["insane_2", "insane_4", "insane_5"] else []
+        disclaimer = [NoEscape(rf", {var} \geq 0")] if prob_type in ["insane_2", "insane_3", "insane_5"] else []
 
         match prob_type:
             case 'simple':
@@ -1141,9 +1141,17 @@ class EquationMultiOperation(ProblemBase):
             case 'insane_3':
                 # \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number such that ab + n is a perfect square
                 # this has a solution as long as sqrt(ab + n) + c != 1
+                # x + d >= 0 holds if x >= 0 and d >= 0
+                # x >= 0 requires \sqrt{ab + n} + c - 1 >= 0 if d >= 0
                 params = [0, 0, 0, 0]
                 n = 0
-                params[3] = choice(candidates)   # d doesn't matter
+                for _ in range(100):
+                    d = choice(candidates)
+                    if d >= 0:
+                        params[3] = d
+                        break
+                if params[3] == 0:
+                    raise ValueError("insane_3 requires a positive value, but the given nrange cannot seem to generate one")
                 candidates.remove(1)   # the rest shouldn't be 1
                 for _ in range(100):
                     a = choice(candidates)
@@ -1159,7 +1167,7 @@ class EquationMultiOperation(ProblemBase):
                         n = (math.ceil(k) + 1) ** 2 - (a * b)
                     else:
                         n = math.ceil(k) ** 2 - (a * b)
-                    if not abs(math.sqrt(a*b + n) + c - 1) < 0.0001:
+                    if math.sqrt(a*b + n) + c - 1 >= 0.0001 :
                         params[0] = a
                         params[1] = b
                         params[2] = c
