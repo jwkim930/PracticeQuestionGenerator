@@ -9,7 +9,7 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.EquationMultiOperation(10, (-9, 9), 'insane_2', var=('y', 'n', 'k'))]
+probs = [problems.EquationMultiOperation(100, (-9, 9), 'insane_2', var=('y', 'n', 'k'))]
 prob_name = "Test"
 prob_inst = NoEscape("Solve the following equations for the unknown variables.")
 prob_cols = 1

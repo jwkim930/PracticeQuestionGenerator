@@ -1101,19 +1101,32 @@ class EquationMultiOperation(ProblemBase):
                                                                               'exponent': 1}]).dumps())])
             case 'insane_2':
                 # \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex has a solution as long as e != abd/10
-                # x >= 0 if a, b, c, d >= 0
+                # x >= 0 if e <= |ab|/10
                 params = [0, 0, 0, 0, 0]
-                candidates = [n for n in candidates if n >= 0]
-                for i in range(3):
-                    params[i] = choice(candidates)
-                candidates.remove(1)   # d and e shouldn't be 1
-                params[3] = choice(candidates)
-                if (params[0] * params[1] * params[3]) % 10 == 0:
-                    try:
-                        candidates.remove((params[0] * params[1] * params[3]) // 10)
-                    except ValueError:
-                        pass   # no candidate results in an ill-defined equation
-                params[4] = choice(candidates)
+                for _ in range(100):
+                    a = choice(candidates)
+                    b = choice(candidates)
+                    c = choice(candidates)
+                    cand = [n for n in candidates if n not in [-1, 1]]
+                    d = choice(cand)
+                    if (a * b * d) % 10 == 0:   # since e is an integer, first condition is clear if this doesn't hold
+                        try:
+                            cand.remove((params[0] * params[1] * params[3]) // 10)
+                        except ValueError:
+                            pass
+                    if -1 in candidates:
+                        cand.append(-1)
+                    e = choice(cand)
+                    if abs(c) != abs(d) and e <= abs(a*b) / 10:
+                        params[0] = a
+                        params[1] = b
+                        params[2] = c
+                        params[3] = d
+                        params[4] = e
+                        break
+                if params[0] == 0:
+                    raise ValueError("The given nrange cannot seem to generate an insane_1 with a solution")
+
                 if random() < 0.5:
                     lhs = TextWrapper([Command('sqrt',
                                                "({})({})".format(Term(var, str(Decimal(params[0] ** 2) / 100), 1).dumps(),
@@ -1220,9 +1233,9 @@ class EquationMultiOperation(ProblemBase):
                                                                                 {'coefficient': params[5], 'exponent': 0}]).dumps())])
 
         if random() < 0.5:
-            result = lhs.get_latex() + [middle] + rhs.get_latex() + disclaimer
+            result = lhs.get_latex() + [middle] + rhs.get_latex() + [NoEscape("\\quad")] + disclaimer
         else:
-            result = rhs.get_latex() + [middle] + lhs.get_latex() + disclaimer
+            result = rhs.get_latex() + [middle] + lhs.get_latex() + [NoEscape("\\quad")] + disclaimer
 
         self.num_quest -= 1
         return Math(inline=True, data=result)
