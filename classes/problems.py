@@ -837,11 +837,14 @@ class EquationMultiOperation(ProblemBase):
     def draws(self, size: int, *blacklist: int) -> tuple[int, ...]:
         """
         Generates random numbers based on the nrange.
+        Returns an empty tuple if size is 0.
         0 is never generated.
 
         :params size: The number of random numbers to generate.
         :params blacklist: These integers will not be generated.
         """
+        if size == 0:
+            return tuple()
         candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n != 0 and n not in blacklist]
         if not candidates:
             raise ValueError("no number can be drawn")
@@ -863,13 +866,10 @@ class EquationMultiOperation(ProblemBase):
             middle = '='
         var = choice(self.var)
         prob_type = choice(self.types)
-        candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n != 0]
         num_params = 0
 
         # some problem types are skipped to prevent having no solution
-        if prob_type in ('simple', 'simple_div', 'simple_dist'):
-            num_params = 3
-        elif prob_type == 'double_frac':
+        if prob_type == 'double_frac':
             num_params = 5
         elif prob_type == 'rational':
             num_params = 2
@@ -878,29 +878,27 @@ class EquationMultiOperation(ProblemBase):
         elif prob_type == 'bino_frac':
             num_params = 6
 
-        params = []
-        for _ in range(num_params):
-            params.append(choice(candidates))
+        params = list(self.draws(num_params))
         lhs = None
         rhs = None
         disclaimer = [NoEscape(rf", {var} \geq 0")] if prob_type in ["insane_2", "insane_3", "insane_5"] else []
 
         match prob_type:
             case 'simple':
-                while params[0] == 1:
-                    params[0] = choice(candidates)   # params[0] shouldn't be 1
+                params = [self.draw(1)]   # params[0] shouldn't be 1
+                params.extend(self.draws(2))
                 lhs = SingleVariablePolynomial(var,
                                                [{'coefficient': params[0], 'exponent': 1},
                                                       {'coefficient': params[1], 'exponent': 0}], mix=True)
                 rhs = TextWrapper([str(params[2])])
             case 'simple_div':
-                while params[0] == 1:
-                    params[0] = choice(candidates)  # params[0] shouldn't be 1
+                params = [self.draw(1)]   # params[0] shouldn't be 1
+                params.extend(self.draws(2))
                 lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(), str(params[1]), mix=True)
                 rhs = TextWrapper([str(params[2])])
             case 'simple_dist':
-                while params[0] == 1:
-                    params[0] = choice(candidates)   # params[0] shouldn't be 1
+                params = [self.draw(1)]   # params[0] shouldn't be 1
+                params.extend(self.draws(2))
                 lhs = TextWrapper([str(params[0]) if params[0] != -1 else '-',
                                    Command('left(').dumps(),
                                    SingleVariablePolynomial(var,
@@ -910,15 +908,11 @@ class EquationMultiOperation(ProblemBase):
                                    Command('right)').dumps()])
                 rhs = TextWrapper([str(params[2])])
             case 'double':
-                # generate parameters, making sure it has a solution
                 # ax + b = cx + d has a solution if a != c
                 params = [0, 0, 0, 0]
-                for i in [1, 3]:   # these don't matter
-                    params[i] = choice(candidates)
-                if 1 in candidates:
-                    candidates.remove(1)   # a and c shouldn't be 1
-                params[0] = candidates.pop(randint(0, len(candidates) - 1))    # choose a first
-                params[2] = choice(candidates)
+                params[1], params[3] = self.draws(2)   # these don't matter
+                params[0] = self.draw(1)   # a shouldn't be 1
+                params[2] = self.draw(1, params[0])   # c shouldn't be 1 or a
 
                 lhs = SingleVariablePolynomial(var,
                                                [{'coefficient': params[0], 'exponent': 1},
