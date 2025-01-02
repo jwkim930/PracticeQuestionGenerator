@@ -763,6 +763,8 @@ class EquationMultiOperation(ProblemBase):
         Every equation requires at least two operations to solve.
         The randomly generated numbers will never be 0.
         A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+        A denominator will never be 1.
+        A fraction will always have distinct numerator and denominator.
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
 
@@ -889,7 +891,7 @@ class EquationMultiOperation(ProblemBase):
 
         match prob_type:
             case 'simple':
-                params[0] = self.draw(1)   # params[0] shouldn't be 1
+                params[0] = self.draw(1, -1)   # params[0] shouldn't be 1 or -1
                 params[1], params[2] = self.draws(2)
 
                 lhs = SingleVariablePolynomial(var,
@@ -955,18 +957,21 @@ class EquationMultiOperation(ProblemBase):
                                                             True).dumps(),
                                    Command('right)').dumps()])
             case 'double_frac':
-                params[1], params[3] = self.draws(2)
-                params[0], params[2], params[4] = self.draws(3, 1)   # these shouldn't be 1
+                params[0], params[2], params[4] = self.draws(3, 1, -1)   # these shouldn't be 1 or -1
+                params[1] = self.draw(params[2], -params[2])   # b shouldn't be +- c
+                params[3] = self.draw(params[4], -params[4])   # d shouldn't be +-e
 
                 lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(),
                                        Command('frac', [params[1], params[2]]).dumps(), mix=True)
                 rhs = Fraction(params[3], params[4], big=False)
             case 'double_frac_dist':
                 # \frac{a}{b}(x + c) = \frac{d}{e}(x + f) has a solution if a/b != d/e
-                params[0], params[2], params[5] = self.draws(3)
-                params[1] = self.draw(1)   # b shouldn't be 1
+                params[2], params[5] = self.draws(2)
+                params[1] = self.draw(1, -1)   # b shouldn't be +-1
+                params[0] = self.draw(params[1], -params[1])   # a shouldn't be +-b
                 for _ in range(100):
-                    d, e = self.draw(), self.draw(1)   # e shouldn't be 1
+                    d = self.draw()
+                    e = self.draw(1, -1, d, -d)   # e shouldn't be +-1 or +-d
                     if d/e != params[0]/params[1]:
                         params[3] = d
                         params[4] = e
@@ -994,15 +999,18 @@ class EquationMultiOperation(ProblemBase):
                 lhs = TextWrapper([Command('frac', [params[0], var]).dumps()])
                 rhs = TextWrapper([str(params[1])])
             case 'frac_const':
-                params[1], params[2] = self.draws(2)
-                params[0], params[3] = self.draws(2, 1)   # a and d shouldn't be 1
+                params[1] = self.draw()
+                params[0], params[3] = self.draws(2, 1, -1)   # a and d shouldn't be +-1
+                params[2] = self.draw(params[3], -params[3])   # c shouldn't be +-d
 
                 lhs = UnsafePolynomial(Command('frac', [var, params[0]]).dumps(),
                                        str(params[1]), mix=True)
                 rhs = Fraction(params[0], params[1], big=False)
             case 'bino_frac':
-                params[0], params[2], params[4] = self.draws(3)
-                params[1], params[3], params[5] = self.draws(3, 1)
+                params[0] = self.draw()
+                params[1], params[3], params[5] = self.draws(3, 1, -1)   # these shouldn't be 1 or -1
+                params[2] = self.draw(params[3], -params[3])   # c shouldn't be +-d
+                params[4] = self.draw(params[5], -params[5])   # e shouldn't be +-f
 
                 lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
                                                                                  [{'coefficient': 1, 'exponent': 1},
@@ -1012,10 +1020,11 @@ class EquationMultiOperation(ProblemBase):
                                        Fraction(params[2], params[3], big=False), mix=True)
                 rhs = Fraction(params[4], params[5], big=False)
             case 'double_bino_frac':
-                # \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f} has a solution as long as b != d
-                params[0], params[2], params[4] = self.draws(3)
-                params[1], params[5] = self.draws(2, 1)   # b, f shouldn't be 1
-                params[3] = self.draw(1, params[1])   # d shouldn't be 1 or b
+                # \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f} has a solution as long as d != -b
+                params[0], params[2] = self.draws(2)
+                params[1], params[5] = self.draws(2, 1, -1)   # b, f shouldn't be 1 or -1
+                params[3] = self.draw(1, -1, -params[1])   # d shouldn't be 1, -1, or -b
+                params[4] = self.draw(params[5], -params[5])   # e shouldn't be +-f
 
                 lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
                                                                              [{'coefficient': 1, 'exponent': 1},
@@ -1030,7 +1039,7 @@ class EquationMultiOperation(ProblemBase):
                 rhs = Fraction(params[4], params[5], big=False)
             case 'bino_frac_const':
                 params[0], params[2], params[3] = self.draws(3)
-                params[1] = self.draw(1)
+                params[1] = self.draw(1, -1)   # b shouldn't be 1 or -1
 
                 lhs = UnsafePolynomial(Command('frac', [SingleVariablePolynomial(var,
                                                                                  [{'coefficient': 1, 'exponent': 1},
@@ -1043,7 +1052,8 @@ class EquationMultiOperation(ProblemBase):
                 # frac{x + a}{b} + cx + d = \frac{x + e}{f} + g has a solution as long as f/b + fc != 1
                 params[0], params[3], params[4], params[6] = self.draws(4)
                 for _ in range(100):
-                    b, c, f = self.draws(3, 1)   # these shouldn't be 1
+                    b, f = self.draws(2, 1, -1)   # b and f shouldn't be 1 or -1
+                    c = self.draw(1)   # c shouldn't be 1
                     if f/b + f*c != 1:
                         params[1] = b
                         params[2] = c
@@ -1102,8 +1112,9 @@ class EquationMultiOperation(ProblemBase):
                 # x >= 0 if e <= |ab|/10
                 params[2] = self.draw()
                 for _ in range(100):
-                    a, b = self.draws(2)
-                    d = self.draw(-1, 1, params[2])   # d shouldn't be +-1 or c
+                    a = self.draw(1)   # a shouldn't be 1
+                    b = self.draw()
+                    d = self.draw(-1, 1, params[2], -params[2])   # d shouldn't be +-1 or +-c
                     if (a * b * d) % 10 == 0:   # since e is an integer, first condition is clear if this doesn't hold
                         e = self.draw(1, (params[0] * params[1] * params[3]) // 10)
                     else:
@@ -1135,7 +1146,7 @@ class EquationMultiOperation(ProblemBase):
                 # x >= 0 requires \sqrt{ab + n} + c - 1 >= 0 if d >= 0
                 params[3] = self.draw(*tuple([n for n in range(self.nrange[0], self.nrange[1]) if n < 0]))
                 for _ in range(100):
-                    a, b, c = self.draws(3, 1)
+                    a, b, c = self.draws(3, 1)   # these shouldn't be 1
                     if a * b < 0:
                         b = -b   # a and b should have the same sign
                     k = math.sqrt(a * b)
@@ -1186,7 +1197,8 @@ class EquationMultiOperation(ProblemBase):
                 # x >= 0 requires f / (10a|d| + |bd| - 10|c|e) >= 0
                 for _ in range(100):
                     b, c, f = self.draws(3)
-                    a, d, e = self.draws(3, 1)
+                    a, e = self.draws(2, 1)   # a and e shouldn't be 1
+                    d = self.draw(1, -1, c, -c)   # d shouldn't be +-1 or +-c
                     if d * (10*a + b) != 10 * c * e and f / (10*a*abs(d) + abs(b*d) - 10*abs(c)*e) >= 0:
                         params[0] = a
                         params[1] = b
