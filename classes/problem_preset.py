@@ -57,3 +57,11 @@ class MultiOperationChallengingMix(problems.EquationMultiOperation):
 class MultiOperationInsaneMix(problems.EquationMultiOperation):
     def __init__(self, num_quest: int, nrange: tuple[int, int], var=('x',), inequality=False):
         super().__init__(num_quest, nrange, 'insane_1', 'insane_2', 'insane_3', 'insane_4', 'insane_5',var=var, inequality=inequality)
+
+class FactoringBasicMix(problems.FactorPolynomial):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], var=('x',)):
+        super().__init__(num_quest, nrange, "number", "symbol", "twonum", "numsym", var=var)
+
+class FactoringQuadMix(problems.FactorPolynomial):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], var=('x',)):
+        super().__init__(num_quest, nrange, "mquad", "quad", var=var)

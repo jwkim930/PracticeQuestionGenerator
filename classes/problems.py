@@ -1244,6 +1244,8 @@ class FactorPolynomial(EquationMultiOperation):
         symbol: two-variable polynomial with degree 0-4 (inclusive, for each variable) with a common variable factor
         twonum: two-variable polynomial with degree 0-4 (inclusive, for each variable) with a common integer factor
         numsym: two-variable polynomial with degree 0-4 (inclusive, for each variable) with common integer and variable factors
+        mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
+        quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't 1
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -1256,13 +1258,12 @@ class FactorPolynomial(EquationMultiOperation):
         possible_types = ("number",
                           "symbol",
                           "twonum",
-                          "numsym")
+                          "numsym",
+                          "mquad",
+                          "quad")
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
-            if len(var) == 1 and t in ("symbol", "twonum", "numsym"):
-                # these require at least two symbols, add x or y
-                var = ('x', 'y') if 'x' in var else (var[0], 'x')
 
         if not types:
             types = possible_types
@@ -1367,6 +1368,26 @@ class FactorPolynomial(EquationMultiOperation):
                         e2 = randint(1, 3)
                 term = MultiVariableTerm(self.draw(), (var1, e1), (var2, e2))
                 result.append((MultiVariablePolynomial(terms) * term).dumps())
+            case "mquad":
+                var = choice(self.var)
+                n, m = self.draws(2)
+                poly = SingleVariablePolynomial(var, [
+                    {"coefficient": 1, "exponent": 2},
+                    {"coefficient": n + m, "exponent": 1},
+                    {"coefficient": n * m, "exponent": 0}
+                ])
+                result.append(poly.dumps())
+            case "quad":
+                var = choice(self.var)
+                a, b, n, m = self.draws(4)
+                if (a == 1 and b == 1) or (a == -1 and b == -1):
+                    a = self.draw(1, -1)
+                poly = SingleVariablePolynomial(var, [
+                    {"coefficient": a * b, "exponent": 2},
+                    {"coefficient": a*m + b*n, "exponent": 1},
+                    {"coefficient": n * m, "exponent": 0}
+                ])
+                result.append(poly.dumps())
 
         self.num_quest -= 1
         return Math(inline=True, data=result)

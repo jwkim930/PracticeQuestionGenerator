@@ -9,7 +9,7 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.FactorPolynomial(100, (-9, 9), "numsym", var=('x', 'y', 'k', 'n'))]
+probs = [problems.FactorPolynomial(100, (-9, 9), "quad", var=('x', 'y', 'k', 'n'))]
 prob_name = "Test"
 prob_inst = NoEscape("Factor the following polynomials.")
 prob_cols = 1
