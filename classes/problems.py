@@ -1227,3 +1227,146 @@ class EquationMultiOperation(ProblemBase):
 
         self.num_quest -= 1
         return Math(inline=True, data=result)
+
+
+class FactorPolynomial(EquationMultiOperation):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str, var=('x',)):
+        """
+        Initializes a polynomial factoring problem.
+        The randomly generated numbers will never be 0.
+        A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+        A denominator will never be 1.
+        A fraction will always have distinct numerator and denominator.
+
+        Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
+
+        number: single-variable polynomial with degree 2-4 (inclusive) with a common integer factor
+        symbol: two-variable polynomial with degree 0-4 (inclusive, for each variable) with a common variable factor
+        twonum: two-variable polynomial with degree 0-4 (inclusive, for each variable) with a common integer factor
+        numsym: two-variable polynomial with degree 0-4 (inclusive, for each variable) with common integer and variable factors
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
+        :param types: The types of equations to be used.
+                      Refer to the docstring for the options and the description of each type.
+                      If nothing is given, every type can appear.
+        :param var: The potential variables to be used. The default is just x.
+        """
+        super().__init__(num_quest, nrange, var=var)
+        possible_types = ("number",
+                          "symbol",
+                          "twonum",
+                          "numsym")
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"The problem type {t} is invalid")
+            if len(var) == 1 and t in ("symbol", "twonum", "numsym"):
+                # these require at least two symbols, add x or y
+                var = ('x', 'y') if 'x' in var else (var[0], 'x')
+
+        if not types:
+            types = possible_types
+        self.types = types
+
+    def get_problem(self):
+        prob_type = choice(self.types)
+        result = []
+
+        match prob_type:
+            case "number":
+                var = choice(self.var)
+                deg = randint(2, 4)
+                exps = sample(list(range(deg)), randint(2, deg))
+                exps.insert(randint(0, len(exps)), deg)
+
+                terms = []
+                for exp in exps:
+                    terms.append(MultiVariableTerm(self.draw(), (var, exp)))
+
+                result.append((MultiVariablePolynomial(terms) * MultiVariableTerm(self.draw(1, -1))).dumps())
+            case "symbol":
+                if len(self.var) == 1:
+                    # this type requires two symbols; add one
+                    var1 = self.var[0]
+                    var2 = 'y' if var1 == 'x' else 'x'
+                else:
+                    var1, var2 = tuple(sample(self.var, 2))
+
+                exp_candidates = []
+                for i in range(4):
+                    for j in range(4):
+                        exp_candidates.append((i, j))
+                exps = sample(exp_candidates, randint(1, 4))
+                # add single factors so that the polynomial cannot be factored at this point
+                exps.insert(randint(0, len(exps)), (randint(1, 4), 0))
+                exps.insert(randint(0, len(exps)), (0, randint(1, 4)))
+
+                terms = []
+                for exp in exps:
+                    terms.append(MultiVariableTerm(self.draw(), (var1, exp[0]), (var2, exp[1])))
+
+                e1 = randint(0, 3)
+                e2 = randint(0, 3)
+                if e1 == 0 and e2 == 0:
+                    if random() < 0.5:
+                        e1 = randint(1, 3)
+                    else:
+                        e2 = randint(1, 3)
+                term = MultiVariableTerm(1, (var1, e1), (var2, e2))
+                result.append((MultiVariablePolynomial(terms) * term).dumps())
+            case "twonum":
+                if len(self.var) == 1:
+                    # this type requires two symbols; add one
+                    var1 = self.var[0]
+                    var2 = 'y' if var1 == 'x' else 'x'
+                else:
+                    var1, var2 = tuple(sample(self.var, 2))
+
+                exp_candidates = []
+                for i in range(4):
+                    for j in range(4):
+                        exp_candidates.append((i, j))
+                exps = sample(exp_candidates, randint(1, 4))
+                # add single factors so that the polynomial cannot be factored at this point
+                exps.insert(randint(0, len(exps)), (randint(1, 4), 0))
+                exps.insert(randint(0, len(exps)), (0, randint(1, 4)))
+
+                terms = []
+                for exp in exps:
+                    terms.append(MultiVariableTerm(self.draw(), (var1, exp[0]), (var2, exp[1])))
+
+                term = MultiVariableTerm(self.draw())
+                result.append((MultiVariablePolynomial(terms) * term).dumps())
+            case "numsym":
+                if len(self.var) == 1:
+                    # this type requires two symbols; add one
+                    var1 = self.var[0]
+                    var2 = 'y' if var1 == 'x' else 'x'
+                else:
+                    var1, var2 = tuple(sample(self.var, 2))
+
+                exp_candidates = []
+                for i in range(4):
+                    for j in range(4):
+                        exp_candidates.append((i, j))
+                exps = sample(exp_candidates, randint(1, 4))
+                # add single factors so that the polynomial cannot be factored at this point
+                exps.insert(randint(0, len(exps)), (randint(1, 4), 0))
+                exps.insert(randint(0, len(exps)), (0, randint(1, 4)))
+
+                terms = []
+                for exp in exps:
+                    terms.append(MultiVariableTerm(self.draw(), (var1, exp[0]), (var2, exp[1])))
+
+                e1 = randint(0, 3)
+                e2 = randint(0, 3)
+                if e1 == 0 and e2 == 0:
+                    if random() < 0.5:
+                        e1 = randint(1, 3)
+                    else:
+                        e2 = randint(1, 3)
+                term = MultiVariableTerm(self.draw(), (var1, e1), (var2, e2))
+                result.append((MultiVariablePolynomial(terms) * term).dumps())
+
+        self.num_quest -= 1
+        return Math(inline=True, data=result)

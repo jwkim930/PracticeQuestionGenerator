@@ -1,6 +1,7 @@
 from decimal import Decimal
 from abc import ABC, abstractmethod
 from random import shuffle
+from typing import Self
 
 from pylatex import Command, NoEscape
 from pylatex.base_classes import LatexObject
@@ -133,8 +134,9 @@ class Fraction(BaseMathEntity):
         else:
             raise ValueError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
+
 class Number(BaseMathEntity):
-    def __init__(self, num: int | str, wrap=False):
+    def __init__(self, num: int | str | Self, wrap=False):
         """
         An integer or a decimal number.
 
@@ -142,6 +144,11 @@ class Number(BaseMathEntity):
         :param wrap: If True, the number will be surrounded by parentheses when it's negative.
                      Has no effect if the sign is positive.
         """
+        if type(num) == Number:
+            super().__init__(num.sign, wrap)
+            self.mag = num.mag
+            return
+
         if type(num) == str:
             num = Decimal(num)
 
@@ -204,11 +211,23 @@ class Number(BaseMathEntity):
     def __int__(self):
         return self.sign * int(self.mag)
 
+    def __add__(self, other):
+        if isinstance(other, Number):
+            if self.sign == other.sign:
+                return Number(self.sign * (self.mag + other.mag))
+            else:
+                if self.mag >= other.mag:
+                    return Number(self.sign * (self.mag - other.mag))
+                else:
+                    return Number(other.sign * (other.mag - self.mag))
+        else:
+            return self + Number(other)
+
 
 class Term(BaseMathEntity):
     def __init__(self, variable: str, coefficient: str | int, exponent: int):
         """
-        A term of a polynomial with a numerical coefficient.
+        A term of a polynomial with a numerical coefficient with one variable.
         The stored coefficient will become positive if the input coefficient was negative.
 
         :param variable: The variable to be used.
@@ -275,7 +294,7 @@ class SingleVariablePolynomial(BaseMathClass):
 
         :param variable: The variable to be used.
         :param data: The list of data as explained above, or as a Term object.
-        :param mix: If True, the terms will be shuffled.
+        :param mix: If True, the terms will be shuffled upon initialization.
         """
         self.variable = variable
         self.data = []
@@ -341,6 +360,120 @@ class SingleVariablePolynomial(BaseMathClass):
             for oterm in other.data:
                 result.append(Term(self.variable, int(sterm.coefficient) * int(oterm.coefficient), sterm.exponent * oterm.exponent))
         return SingleVariablePolynomial(self.variable, result)
+
+
+class MultiVariableTerm(BaseMathEntity):
+    def __init__(self, coefficient: str | int | Number, *variables: tuple[str, str | int]):
+        """
+        A term of a polynomial with a numerical coefficient and variables raised to a numerical power.
+        The stored coefficient will become positive if the input coefficient was negative.
+
+        :param coefficient: The coefficient of the polynomial. Use string for any non-integer values.
+        :param variables: The variables raised to a numerical power. The first element should be the variable
+                          and the second should be the exponent. Use string for any non-integer exponent.
+        """
+        coefficient = Number(coefficient)
+        super().__init__(coefficient.sign, False)
+        self.coefficient = coefficient if coefficient.sign == 1 else -coefficient
+        self.variables = []
+        for var in variables:
+            self.variables.append((var[0], Number(var[1])))
+
+    def __eq__(self, other):
+        if not isinstance(other, MultiVariableTerm):
+            return False
+        else:
+            if self.sign != other.sign:
+                return False
+            if self.coefficient != other.coefficient:
+                return False
+            for var in self.variables:
+                if var not in other.variables:
+                    return False
+            for var in other.variables:
+                if var not in self.variables:
+                    return False
+
+            return True
+
+    def __neg__(self):
+        return MultiVariableTerm(self.coefficient.mag * -self.sign, *self.variables)
+
+    def __mul__(self, other):
+        if isinstance(other, MultiVariableTerm):
+            variables = self.variables.copy()
+            for var in other.variables:
+                vs = [v[0] for v in variables]
+                if var[0] not in vs:
+                    variables.append(var)
+                else:
+                    i = vs.index(var[0])
+                    variables[i] = (variables[i][0], variables[i][1] + var[1])
+            return MultiVariableTerm(self.coefficient * other.coefficient * self.sign * other.sign,
+                                     *variables)
+        elif isinstance(other, MultiVariablePolynomial):
+            return other * self
+        else:
+            raise ValueError(f"Multiplication between MultiVariableTerm and {type(other)} is undefined")
+
+    def get_latex(self) -> list[NoEscape]:
+        result = []
+        if self.coefficient != 1 or len(self.variables) == 0:
+            result.append((self.coefficient * self.sign).dumps())
+        elif self.sign == -1:
+            result.append(NoEscape("-"))
+        for var in self.variables:
+            if var[1] != 0:
+                exp = ""
+                if var[1] != 1:
+                    exp = var[1].dumps()
+                result.append(NoEscape(f"{var[0]}^{{{exp}}}"))
+            elif self.coefficient in (-1, 1):
+                result.append(NoEscape(1))
+
+        return result
+
+
+class MultiVariablePolynomial(BaseMathClass):
+    def __init__(self, terms: list[MultiVariableTerm], mix=False):
+        """
+        A polynomial with integer coefficients and one variable.
+        The input data can be a list of dictionaries,
+        where each dictionary represents a term in the polynomial.
+
+        :param terms: The terms of the polynomial.
+        :param mix: If True, the terms will be shuffled upon initialization.
+        """
+        self.terms = terms
+        if mix:
+            shuffle(self.terms)
+
+    def __mul__(self, other):
+        if isinstance(other, MultiVariableTerm):
+            terms = self.terms.copy()
+            for i in range(len(terms)):
+                terms[i] = terms[i] * other
+            return MultiVariablePolynomial(terms)
+        elif isinstance(other, MultiVariablePolynomial):
+            terms = []
+            for mine in self.terms:
+                for others in other.terms:
+                    terms.append(mine * others)
+            return MultiVariablePolynomial(terms)
+        else:
+            raise ValueError(f"Multiplication between MultiVariablePolynomial and {type(other)} is undefined")
+
+    def get_latex(self) -> list[NoEscape]:
+        # first iteration
+        result = [self.terms[0].dumps()]
+
+        # later iterations
+        for term in self.terms[1:]:
+            if term.sign == 1:
+                result.append(NoEscape("+"))
+            result.append(term.dumps())
+
+        return result
 
 
 class PolynomialFraction(BaseMathClass):
