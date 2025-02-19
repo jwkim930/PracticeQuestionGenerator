@@ -1240,10 +1240,10 @@ class FactorPolynomial(EquationMultiOperation):
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
 
-        number: single-variable polynomial with degree 2-4 (inclusive) with a common integer factor
-        symbol: two-variable polynomial with degree 0-4 (inclusive, for each variable) with a common variable factor
-        twonum: two-variable polynomial with degree 0-4 (inclusive, for each variable) with a common integer factor
-        numsym: two-variable polynomial with degree 0-4 (inclusive, for each variable) with common integer and variable factors
+        number: single-variable polynomial with a common integer factor
+        symbol: two-variable polynomial with a common variable factor
+        twonum: two-variable polynomial with a common integer factor
+        numsym: two-variable polynomial with common integer and variable factors
         mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
         quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't 1
 
@@ -1255,6 +1255,7 @@ class FactorPolynomial(EquationMultiOperation):
         :param var: The potential variables to be used. The default is just x.
         """
         super().__init__(num_quest, nrange, var=var)
+        self.vspace = "2.5cm"
         possible_types = ("number",
                           "symbol",
                           "twonum",
@@ -1334,7 +1335,7 @@ class FactorPolynomial(EquationMultiOperation):
 
                 terms = []
                 for exp in exps:
-                    terms.append(MultiVariableTerm(self.draw(), (var1, exp[0]), (var2, exp[1])))
+                    terms.append(MultiVariableTerm(self.draw(1, -1), (var1, exp[0]), (var2, exp[1])))
 
                 term = MultiVariableTerm(self.draw())
                 result.append((MultiVariablePolynomial(terms) * term).dumps())
@@ -1357,7 +1358,7 @@ class FactorPolynomial(EquationMultiOperation):
 
                 terms = []
                 for exp in exps:
-                    terms.append(MultiVariableTerm(self.draw(), (var1, exp[0]), (var2, exp[1])))
+                    terms.append(MultiVariableTerm(self.draw(1, -1), (var1, exp[0]), (var2, exp[1])))
 
                 e1 = randint(0, 3)
                 e2 = randint(0, 3)
