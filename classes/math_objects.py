@@ -1,7 +1,6 @@
 from decimal import Decimal
 from abc import ABC, abstractmethod
 from random import shuffle
-from typing import Self
 
 from pylatex import Command, NoEscape
 from pylatex.base_classes import LatexObject
@@ -135,30 +134,37 @@ class Fraction(BaseMathEntity):
             raise ValueError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
 
+type NumberArgument = int | float | Decimal | str | Number
+
+
 class Number(BaseMathEntity):
-    def __init__(self, num: int | str | Self, wrap=False):
+    def __init__(self, num: NumberArgument, wrap=False):
         """
         An integer or a decimal number.
 
-        :param num: The number to be represented. For a decimal number, enter it as a string.
+        :param num: The number to be represented.
+                    For a decimal number, you can enter it as a string to avoid float rounding error.
         :param wrap: If True, the number will be surrounded by parentheses when it's negative.
                      Has no effect if the sign is positive.
         """
         if type(num) == Number:
             super().__init__(num.sign, wrap)
-            self.mag = num.mag
-            return
-
-        if type(num) == str:
+            self.mag: Decimal = num.mag
+        else:
             num = Decimal(num)
+            sign = 1
+            if num < 0:
+                sign = -1
+                num = -num
 
-        neg = False
-        if num < 0:
-            neg = True
-            num = -num
+            super().__init__(sign, wrap)
+            self.mag: Decimal = num
 
-        super().__init__(-1 if neg else 1, wrap)
-        self.mag = num
+    def get_signed(self) -> Decimal:
+        """
+        Returns the value of the number with the sign attached.
+        """
+        return self.sign * self.mag
 
     def get_latex(self) -> list[Command | NoEscape]:
         if self.sign == -1:
@@ -172,44 +178,36 @@ class Number(BaseMathEntity):
         else:
             return [NoEscape(self.mag)]
 
-    def is_int(self):
+    def is_int(self) -> bool:
         """
         Returns True if this number can be converted to integer with no loss.
         """
-        return int(self.mag) == self.mag
+        return self.mag == int(self.mag)
+
+    def __str__(self):
+        return str(self.get_signed())
 
     def __eq__(self, other):
         if not isinstance(other, Number):
-            return self.sign * self.mag == other
+            return self.get_signed() == other
         else:
             return self.sign == other.sign and self.mag == other.mag
 
     def __neg__(self):
-        if type(self.mag) == int:
-            return Number(self.mag * -self.sign)
-        else:
-            return Number(str(-self.sign)[:-1] + str(self.mag))
+        return Number(-self.get_signed())
 
     def __mul__(self, other):
-        if isinstance(other, int):
-            if type(self.mag) is int:
-                return Number(self.mag * other * self.sign)
-            else:
-                return Number(str(self.mag * other * self.sign))
-        elif isinstance(other, Decimal):
-            return Number(str(other * self.mag * self.sign))
-        elif isinstance(other, Number):
-            if type(self.mag) is int and type(other.mag) is int:
-                return Number(self.mag * self.sign * other.mag * other.sign)
-            else:
-                return Number(str(self.mag * self.sign * other.mag * other.sign))
+        if type(other) in (int, float, Decimal):
+            return Number(self.get_signed() * other)
+        elif type(other) is Number:
+            return Number(self.get_signed() * other.get_signed())
         elif isinstance(other, Fraction):
             return other * self
         else:
             raise ValueError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
     def __int__(self):
-        return self.sign * int(self.mag)
+        return int(self.get_signed())
 
     def __add__(self, other):
         if isinstance(other, Number):
@@ -225,25 +223,28 @@ class Number(BaseMathEntity):
 
 
 class Term(BaseMathEntity):
-    def __init__(self, variable: str, coefficient: str | int, exponent: int):
+    def __init__(self, variable: str, coefficient: NumberArgument, exponent: int):
         """
         A term of a polynomial with a numerical coefficient with one variable.
-        The stored coefficient will become positive if the input coefficient was negative.
+        The stored coefficient will always be non-negative.
 
         :param variable: The variable to be used.
         :param coefficient: The coefficient of the polynomial. Use string for any non-integer values.
         :param exponent: The exponent of this term.
         """
-        coefficient = Number(coefficient)
-        super().__init__(coefficient.sign, False)
-        self.coefficient = coefficient if coefficient.sign == 1 else -coefficient
+        self.coefficient = Number(coefficient)
+        super().__init__(self.coefficient.sign, False)
+        self.coefficient.sign = 1
         self.exponent = exponent
         self.variable = variable
+
+    def get_signed_coefficient(self) -> Number:
+        return self.coefficient * self.sign
 
     def get_latex(self) -> list[NoEscape]:
         coe = ''
         if self.coefficient != 1 or self.exponent == 0:
-            coe = (self.coefficient * self.sign).dumps()
+            coe = self.get_signed_coefficient().dumps()
         elif self.sign == -1:
             coe = '-'
 
@@ -256,11 +257,11 @@ class Term(BaseMathEntity):
         if isinstance(other, Term):
             return self.variable == other.variable and self.coefficient == other.coefficient and self.sign == other.sign
         elif self.exponent == 0:
-            return self.coefficient * self.sign == other
+            return self.get_signed_coefficient() == other
 
     def __neg__(self):
         if type(self.coefficient.mag) is int:
-            return Term(self.variable, self.coefficient.mag * -self.sign, self.exponent)
+            return Term(self.variable, -self.get_signed_coefficient(), self.exponent)
 
 
 class SingleVariablePolynomial(BaseMathClass):
@@ -363,7 +364,7 @@ class SingleVariablePolynomial(BaseMathClass):
 
 
 class MultiVariableTerm(BaseMathEntity):
-    def __init__(self, coefficient: str | int | Number, *variables: tuple[str, str | int]):
+    def __init__(self, coefficient: NumberArgument, *variables: tuple[str, NumberArgument]):
         """
         A term of a polynomial with a numerical coefficient and variables raised to a numerical power.
         The stored coefficient will become positive if the input coefficient was negative.
@@ -372,12 +373,10 @@ class MultiVariableTerm(BaseMathEntity):
         :param variables: The variables raised to a numerical power. The first element should be the variable
                           and the second should be the exponent. Use string for any non-integer exponent.
         """
-        coefficient = Number(coefficient)
-        super().__init__(coefficient.sign, False)
-        self.coefficient = coefficient if coefficient.sign == 1 else -coefficient
-        self.variables = []
-        for var in variables:
-            self.variables.append((var[0], Number(var[1])))
+        self.coefficient = Number(coefficient)
+        super().__init__(self.coefficient.sign, False)
+        self.coefficient.sign = 1
+        self.variables = [(var[0], Number(var[1])) for var in variables]
 
     def __eq__(self, other):
         if not isinstance(other, MultiVariableTerm):

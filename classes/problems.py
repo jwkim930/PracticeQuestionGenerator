@@ -1247,6 +1247,15 @@ class FactorPolynomial(EquationMultiOperation):
         mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
         nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
         quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
+        quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
+
+        TODO:
+        - Perfect square
+        - Difference of squares
+        - Product of two-variable binomial
+        - More than three terms, mixed order (like terms can be combined)
+        - Requires some more complicated simplifications
+
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -1263,7 +1272,8 @@ class FactorPolynomial(EquationMultiOperation):
                           "numsym",
                           "mquad",
                           "nquad",
-                          "quad")
+                          "quad",
+                          "quad_numsym")
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
@@ -1400,6 +1410,24 @@ class FactorPolynomial(EquationMultiOperation):
                     {"coefficient": a*m + b*n, "exponent": 1},
                     {"coefficient": n * m, "exponent": 0}
                 ])
+                result.append(poly.dumps())
+            case "quad_numsym":
+                if len(self.var) == 1:
+                    # this type requires two symbols; add one
+                    var1 = self.var[0]
+                    var2 = 'y' if var1 == 'x' else 'x'
+                else:
+                    var1, var2 = tuple(sample(self.var, 2))
+
+                a, b, n, m = self.draws(4)
+                exp1 = randint(0, 4)
+                exp2 = randint(1, 4)
+                poly = MultiVariablePolynomial([
+                    MultiVariableTerm(a * b, (var1, 2)),
+                    MultiVariableTerm(a*m + b*n, (var1, 1)),
+                    MultiVariableTerm(n * m, (var1, 0))
+                ])
+                poly *= MultiVariableTerm(self.draw(), (var1, exp1), (var2, exp2))
                 result.append(poly.dumps())
 
         self.num_quest -= 1
