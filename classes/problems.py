@@ -1245,7 +1245,8 @@ class FactorPolynomial(EquationMultiOperation):
         twonum: two-variable polynomial with a common integer factor
         numsym: two-variable polynomial with common integer and variable factors
         mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
-        quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't 1
+        nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
+        quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -1261,6 +1262,7 @@ class FactorPolynomial(EquationMultiOperation):
                           "twonum",
                           "numsym",
                           "mquad",
+                          "nquad",
                           "quad")
         for t in types:
             if t not in possible_types:
@@ -1375,6 +1377,16 @@ class FactorPolynomial(EquationMultiOperation):
                 poly = SingleVariablePolynomial(var, [
                     {"coefficient": 1, "exponent": 2},
                     {"coefficient": n + m, "exponent": 1},
+                    {"coefficient": n * m, "exponent": 0}
+                ])
+                result.append(poly.dumps())
+            case "nquad":
+                var = choice(self.var)
+                n, m = self.draws(2)
+                s = 1 if random() < 0.5 else -1
+                poly = SingleVariablePolynomial(var, [
+                    {"coefficient": s, "exponent": 2},
+                    {"coefficient": n + s*m, "exponent": 1},
                     {"coefficient": n * m, "exponent": 0}
                 ])
                 result.append(poly.dumps())
