@@ -378,6 +378,9 @@ class MultiVariableTerm(BaseMathEntity):
         self.coefficient.sign = 1
         self.variables = [(var[0], Number(var[1])) for var in variables]
 
+    def get_signed_coefficient(self) -> Number:
+        return self.coefficient * self.sign
+
     def __eq__(self, other):
         if not isinstance(other, MultiVariableTerm):
             return False
@@ -396,7 +399,7 @@ class MultiVariableTerm(BaseMathEntity):
             return True
 
     def __neg__(self):
-        return MultiVariableTerm(self.coefficient.mag * -self.sign, *self.variables)
+        return MultiVariableTerm(-self.get_signed_coefficient(), *self.variables)
 
     def __mul__(self, other):
         if isinstance(other, MultiVariableTerm):
@@ -408,10 +411,12 @@ class MultiVariableTerm(BaseMathEntity):
                 else:
                     i = vs.index(var[0])
                     variables[i] = (variables[i][0], variables[i][1] + var[1])
-            return MultiVariableTerm(self.coefficient * other.coefficient * self.sign * other.sign,
+            return MultiVariableTerm(self.get_signed_coefficient() * other.get_signed_coefficient(),
                                      *variables)
         elif isinstance(other, MultiVariablePolynomial):
             return other * self
+        elif type(other) in (int, float, Decimal, Number):
+            return MultiVariableTerm(self.get_signed_coefficient() * other, *self.variables)
         else:
             raise ValueError(f"Multiplication between MultiVariableTerm and {type(other)} is undefined")
 
