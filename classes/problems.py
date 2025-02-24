@@ -1460,7 +1460,7 @@ class FactorPolynomial(EquationMultiOperation):
                 ])
                 for i in range(3):
                     if s[i] != 0:
-                        poly.append({"coefficient": s[i], "exponent": 2-i})
+                        poly.append(Term(var, s[i], 2-i))
                 poly.mix()
 
         self.num_quest -= 1
