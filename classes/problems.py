@@ -1249,11 +1249,11 @@ class FactorPolynomial(EquationMultiOperation):
         quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
         quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
         quad_twosym: two-variable polynomial that can be factored into two binomials
-        square: a perfect square of a single-variable binomial.
-        square_twosym: a perfect square of a two-variable binomial.
+        square: a perfect square of a single-variable binomial
+        square_twosym: a perfect square of a two-variable binomial
         diffsq: the difference of a perfect square monomial and a perfect square constant
+        quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
 
-        TODO: More than three terms, mixed order (like terms can be combined)
         TODO: Requires some more complicated simplifications
 
 
@@ -1276,7 +1276,8 @@ class FactorPolynomial(EquationMultiOperation):
                           "quad_numsym",
                           "quad_twosym",
                           "square",
-                          "diffsq")
+                          "diffsq",
+                          "quad_combine")
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
@@ -1442,6 +1443,25 @@ class FactorPolynomial(EquationMultiOperation):
                     {"coefficient": a**2, "exponent": 2},
                     {"coefficient": -n**2, "exponent": 0}
                 ])
+            case "quad_combine":
+                var = choice(self.var)
+                a, b, n, m = self.draws(4)   # (ax + n)(bx + m)
+                # c[0]x^2 + c[1]x + c[2]
+                c = [a * b, a*m + b*n, n * m]
+                s = [0, 0, 0]   # amount to subtract from coefficients
+                while s == [0, 0, 0]:
+                    for i in range(3):
+                        if random() < 0.8:   # 20% chance to be left at 0
+                            s[i] = self.draw(c[i])
+                poly = SingleVariablePolynomial(var, [
+                    Term(var, c[0] - s[0], 2),
+                    Term(var, c[1] - s[1], 1),
+                    Term(var, c[2] - s[2], 0)
+                ])
+                for i in range(3):
+                    if s[i] != 0:
+                        poly.append({"coefficient": s[i], "exponent": 2-i})
+                poly.mix()
 
         self.num_quest -= 1
         return Math(inline=True, data=[poly.dumps()])

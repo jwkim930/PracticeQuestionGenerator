@@ -291,8 +291,6 @@ class SingleVariablePolynomial(BaseMathClass):
           'exponent': 0}
         ]
 
-        This object also records the degree of the polynomial.
-
         :param variable: The variable to be used.
         :param data: The list of data as explained above, or as a Term object.
         :param mix: If True, the terms will be shuffled upon initialization.
@@ -302,12 +300,14 @@ class SingleVariablePolynomial(BaseMathClass):
         self.degree = float('-inf')
         for t in data:
             if isinstance(t, Term):
+                if self.variable != t.variable:
+                    raise ValueError("Polynomial variable doesn't agree with term variable")
                 self.data.append(t)
             else:
                 self.data.append(Term(variable, t['coefficient'], t['exponent']))
             self.degree = max(self.degree, self.data[-1].exponent)
         if mix:
-            shuffle(self.data)
+            self.mix()
 
     def __len__(self):
         """
@@ -361,6 +361,26 @@ class SingleVariablePolynomial(BaseMathClass):
             for oterm in other.data:
                 result.append(Term(self.variable, int(sterm.coefficient) * int(oterm.coefficient), sterm.exponent * oterm.exponent))
         return SingleVariablePolynomial(self.variable, result)
+
+    def append(self, term: dict[str, int] | Term):
+        """
+        Adds a term to the end of the polynomials.
+
+        :param term: The term to be added. Can be a dictionary with keys 'coefficient' and 'exponent'
+                     or a Term instance.
+        """
+        if not isinstance(term, Term):
+            term = Term(self.variable, term["coefficient"], term["exponent"])
+        elif term.variable != self.variable:
+            raise ValueError("Polynomial variable doesn't agree with term variable")
+        self.data.append(term)
+        self.degree = max(self.degree, term.exponent)
+
+    def mix(self):
+        """
+        Mixes the order of the terms.
+        """
+        shuffle(self.data)
 
 
 class MultiVariableTerm(BaseMathEntity):
@@ -448,9 +468,9 @@ class MultiVariablePolynomial(BaseMathClass):
         :param terms: The terms of the polynomial.
         :param mix: If True, the terms will be shuffled upon initialization.
         """
-        self.terms = terms
+        self.terms = terms.copy()
         if mix:
-            shuffle(self.terms)
+            self.mix()
 
     def __mul__(self, other):
         if isinstance(other, MultiVariableTerm):
@@ -478,6 +498,20 @@ class MultiVariablePolynomial(BaseMathClass):
             result.append(term.dumps())
 
         return result
+
+    def append(self, term: MultiVariableTerm):
+        """
+        Adds the term to the end of the polynomial.
+
+        :param term: The term to be added.
+        """
+        self.terms.append(term)
+
+    def mix(self):
+        """
+        Mixes the order of the terms in the polynomial.
+        """
+        shuffle(self.terms)
 
 
 class PolynomialFraction(BaseMathClass):
