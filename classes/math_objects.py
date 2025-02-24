@@ -131,7 +131,7 @@ class Fraction(BaseMathEntity):
         elif isinstance(other, Fraction):
             return Fraction(self.num * other.num, self.denom * other.denom, self.sign * other.sign, self.big or other.big)
         else:
-            raise ValueError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
+            raise TypeError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
 
 type NumberArgument = int | float | Decimal | str | Number
@@ -204,7 +204,7 @@ class Number(BaseMathEntity):
         elif isinstance(other, Fraction):
             return other * self
         else:
-            raise ValueError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
+            raise TypeError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
     def __int__(self):
         return int(self.get_signed())
@@ -219,168 +219,37 @@ class Number(BaseMathEntity):
                 else:
                     return Number(other.sign * (other.mag - self.mag))
         else:
-            return self + Number(other)
+            try:
+                return self + Number(other)
+            except (ValueError, TypeError):
+                raise TypeError(f"Addition between Number and {type(other).__name__} is not defined")
 
+    def __sub__(self, other):
+        if isinstance(other, Number):
+            return Number(self + -other)
+        else:
+            try:
+                return self - Number(other)
+            except (ValueError, TypeError):
+                raise TypeError(f"Subtraction between Number and {type(other).__name__} is not defined")
 
-class Term(BaseMathEntity):
-    def __init__(self, variable: str, coefficient: NumberArgument, exponent: int):
-        """
-        A term of a polynomial with a numerical coefficient with one variable.
-        The stored coefficient will always be non-negative.
+    def __lt__(self, other):
+        if isinstance(other, Number):
+            return (self - other).sign == -1
+        else:
+            try:
+                return self < Number(other)
+            except (ValueError, TypeError):
+                raise TypeError(f"Number and {type(other).__name__} are not comparable")
 
-        :param variable: The variable to be used.
-        :param coefficient: The coefficient of the polynomial. Use string for any non-integer values.
-        :param exponent: The exponent of this term.
-        """
-        self.coefficient = Number(coefficient)
-        super().__init__(self.coefficient.sign, False)
-        self.coefficient.sign = 1
-        self.exponent = exponent
-        self.variable = variable
+    def __le__(self, other):
+        return self < other or self == other
 
-    def get_signed_coefficient(self) -> Number:
-        return self.coefficient * self.sign
+    def __gt__(self, other):
+        return -self < -other
 
-    def get_latex(self) -> list[NoEscape]:
-        coe = ''
-        if self.coefficient != 1 or self.exponent == 0:
-            coe = self.get_signed_coefficient().dumps()
-        elif self.sign == -1:
-            coe = '-'
-
-        return [NoEscape(coe),
-                NoEscape(self.variable if self.exponent != 0 else ''),
-                NoEscape('^' if self.exponent not in [0, 1] else ''),
-                NoEscape(f"{{{self.exponent}}}" if self.exponent not in [0, 1] else '')]
-
-    def __eq__(self, other):
-        if isinstance(other, Term):
-            return self.variable == other.variable and self.coefficient == other.coefficient and self.sign == other.sign
-        elif self.exponent == 0:
-            return self.get_signed_coefficient() == other
-
-    def __neg__(self):
-        if type(self.coefficient.mag) is int:
-            return Term(self.variable, -self.get_signed_coefficient(), self.exponent)
-
-
-class SingleVariablePolynomial(BaseMathClass):
-    def __init__(self, variable: str, data: list[dict[str, int] | Term], mix=False):
-        """
-        A polynomial with integer coefficients and one variable.
-        The input data can be a list of dictionaries,
-        where each dictionary represents a term in the polynomial.
-
-        Each dictionary must be in the following structure:
-        {'coefficient': coefficient value, int,
-         'exponent': exponent of the variable, int}
-
-        For example, the term -4x^3 is represented by the dictionary:
-        {'coefficient': -4
-         'exponent': 3
-        }
-
-        For a constant term, the exponent must be 0 and the coefficient must record the value of the constant.
-
-        Each term is assumed to be added. That is, the polynomial 4x - 2 is
-        uniquely identified by the data:
-
-        [{'coefficient': 4,
-          'exponent': 1},
-         {'coefficient': -2,
-          'exponent': 0}
-        ]
-
-        :param variable: The variable to be used.
-        :param data: The list of data as explained above, or as a Term object.
-        :param mix: If True, the terms will be shuffled upon initialization.
-        """
-        self.variable = variable
-        self.data = []
-        self.degree = float('-inf')
-        for t in data:
-            if isinstance(t, Term):
-                if self.variable != t.variable:
-                    raise ValueError("Polynomial variable doesn't agree with term variable")
-                self.data.append(t)
-            else:
-                self.data.append(Term(variable, t['coefficient'], t['exponent']))
-            self.degree = max(self.degree, self.data[-1].exponent)
-        if mix:
-            self.mix()
-
-    def __len__(self):
-        """
-        Returns the number of terms in the polynomial.
-        """
-        return len(self.data)
-
-    def get_latex(self) -> list[NoEscape]:
-        def term_str(v: str, c: int, e: int) -> str:
-            if e == 0:
-                return str(c)
-            elif e == 1:
-                if c == 1:
-                    return v
-                elif c == -1:
-                    return f"-{v}"
-                else:
-                    return f"{c}{v}"
-            elif c == 1:
-                return f"{v}^{{{e}}}"
-            elif c == -1:
-                return f"-{v}^{{{e}}}"
-            else:
-                return f"{c}{v}^{{{e}}}"
-
-        result = []
-
-        # first iteration
-        term = self.data[0]
-        coe = int(term.coefficient) * term.sign
-        exp = term.exponent
-        result.append(NoEscape(term_str(self.variable, coe, exp)))
-
-        # later iterations
-        for i in range(1, len(self.data)):
-            term = self.data[i]
-            coe = int(term.coefficient) * term.sign
-            exp = term.exponent
-            opr = '' if coe < 0 else '+'
-            result.append(NoEscape(opr + term_str(self.variable, coe, exp)))
-
-        return result
-
-    def __mul__(self, other):
-        if not isinstance(other, SingleVariablePolynomial):
-            raise ValueError(f"multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
-        if self.variable != other.variable:
-            raise ValueError(f"The two polynomials use different variables: {self.variable} and {other.variable}")
-        result = []
-        for sterm in self.data:
-            for oterm in other.data:
-                result.append(Term(self.variable, int(sterm.coefficient) * int(oterm.coefficient), sterm.exponent * oterm.exponent))
-        return SingleVariablePolynomial(self.variable, result)
-
-    def append(self, term: dict[str, int] | Term):
-        """
-        Adds a term to the end of the polynomials.
-
-        :param term: The term to be added. Can be a dictionary with keys 'coefficient' and 'exponent'
-                     or a Term instance.
-        """
-        if not isinstance(term, Term):
-            term = Term(self.variable, term["coefficient"], term["exponent"])
-        elif term.variable != self.variable:
-            raise ValueError("Polynomial variable doesn't agree with term variable")
-        self.data.append(term)
-        self.degree = max(self.degree, term.exponent)
-
-    def mix(self):
-        """
-        Mixes the order of the terms.
-        """
-        shuffle(self.data)
+    def __ge__(self, other):
+        return self > other or self == other
 
 
 class MultiVariableTerm(BaseMathEntity):
@@ -438,7 +307,7 @@ class MultiVariableTerm(BaseMathEntity):
         elif type(other) in (int, float, Decimal, Number):
             return MultiVariableTerm(self.get_signed_coefficient() * other, *self.variables)
         else:
-            raise ValueError(f"Multiplication between MultiVariableTerm and {type(other)} is undefined")
+            raise TypeError(f"Multiplication between MultiVariableTerm and {type(other).__name__} is undefined")
 
     def get_latex(self) -> list[NoEscape]:
         result = []
@@ -485,7 +354,7 @@ class MultiVariablePolynomial(BaseMathClass):
                     terms.append(mine * others)
             return MultiVariablePolynomial(terms)
         else:
-            raise ValueError(f"Multiplication between MultiVariablePolynomial and {type(other)} is undefined")
+            raise TypeError(f"Multiplication between MultiVariablePolynomial and {type(other).__name__} is undefined")
 
     def get_latex(self) -> list[NoEscape]:
         # first iteration
@@ -512,6 +381,90 @@ class MultiVariablePolynomial(BaseMathClass):
         Mixes the order of the terms in the polynomial.
         """
         shuffle(self.terms)
+
+
+class Term(MultiVariableTerm):
+    def __init__(self, variable: str, coefficient: NumberArgument, exponent: int):
+        """
+        A term of a polynomial with a numerical coefficient with one variable.
+        The stored coefficient will always be non-negative.
+
+        :param variable: The variable to be used.
+        :param coefficient: The coefficient of the polynomial. Use string for any non-integer values.
+        :param exponent: The exponent of this term.
+        """
+        super().__init__(coefficient, (variable, exponent))
+        self.variable = variable
+
+    @staticmethod
+    def from_dict(var: str, dic: dict[str, int]) -> "Term":
+        """
+        Initialize Term from a dictionary.
+
+        Each dictionary must be in the following structure:
+        {'coefficient': coefficient value, int,
+         'exponent': exponent of the variable, int}
+
+        For example, the term -4x^3 is represented by the dictionary:
+        {'coefficient': -4
+         'exponent': 3
+        }
+
+        For a constant term, the exponent must be 0 and the coefficient must record the value of the constant.
+
+        :param var: The variable to be used.
+        :param dic: The dictionary to be converted to Term, following the structure above.
+        """
+        return Term(var, dic["coefficient"], dic["exponent"])
+
+
+class SingleVariablePolynomial(MultiVariablePolynomial):
+    def __init__(self, variable: str, data: list[dict[str, int] | Term], mix=False):
+        """
+        A polynomial with integer coefficients and one variable.
+        The input data can be a list of dictionaries,
+        where each dictionary represents a term in the polynomial.
+
+        Each dictionary must be in the following structure:
+        {'coefficient': coefficient value, int,
+         'exponent': exponent of the variable, int}
+
+        For example, the term -4x^3 is represented by the dictionary:
+        {'coefficient': -4
+         'exponent': 3
+        }
+
+        For a constant term, the exponent must be 0 and the coefficient must record the value of the constant.
+
+        Each term is assumed to be added. That is, the polynomial 4x - 2 is
+        uniquely identified by the data:
+
+        [{'coefficient': 4,
+          'exponent': 1},
+         {'coefficient': -2,
+          'exponent': 0}
+        ]
+
+        :param variable: The variable to be used.
+        :param data: The list of data as explained above, or as a Term object.
+        :param mix: If True, the terms will be shuffled upon initialization.
+        """
+        self.variable = variable
+        terms = []
+        self.degree: int = float('-inf')
+        for t in data:
+            if isinstance(t, Term):
+                if self.variable != t.variable:
+                    raise ValueError("Polynomial variable doesn't agree with term variable")
+                if not t.variables[0][1].is_int():
+                    raise ValueError("Exponent must be integer for SingleVariablePolynomial")
+                terms.append(t)
+            else:
+                if t["exponent"] % 1 != 0:
+                    raise ValueError("Exponent must be integer for SingleVariablePolynomial")
+                terms.append(Term.from_dict(variable, t))
+            self.degree = max(self.degree, int(terms[-1].variables[0][1]))
+        super().__init__(terms, mix)
 
 
 class PolynomialFraction(BaseMathClass):
@@ -579,7 +532,7 @@ class UnsafePolynomial(BaseMathClass):
                 t['sign'] = 1
                 t['value'] = term.dumps()
             else:
-                raise ValueError(f"type {type(term).__name__} is not allowed for a term")
+                raise TypeError(f"type {type(term).__name__} is not allowed for a term")
             self.terms.append(t)
         if mix:
             shuffle(self.terms)
