@@ -763,7 +763,6 @@ class EquationMultiOperation(ProblemBase):
         Every equation requires at least two operations to solve.
         The randomly generated numbers will never be 0.
         A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
-        A denominator will never be 1.
         A fraction will always have distinct numerator and denominator.
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
@@ -1254,9 +1253,6 @@ class FactorPolynomial(EquationMultiOperation):
         diffsq: the difference of a perfect square monomial and a perfect square constant
         quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
 
-        TODO: Requires some more complicated simplifications
-
-
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
         :param types: The types of equations to be used.
@@ -1466,3 +1462,75 @@ class FactorPolynomial(EquationMultiOperation):
 
         self.num_quest -= 1
         return Math(inline=True, data=[poly.dumps()])
+
+
+class QuadraticEquation(EquationMultiOperation):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str, var=('x',), inequality=False):
+        r"""
+        Initializes a problem where a quadratic equation must be solved.
+        The randomly generated numbers will never be 0.
+        A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+        A fraction will always have distinct numerator and denominator.
+
+        Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
+
+        fact_standard: ax^2 + bx + c = 0, can be solved by factoring
+        fact_separated: ax^2 + bx = c, can be solved by factoring
+
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for generating the numbers in the equation, (begin, end) inclusive.
+                       The numbers in the actual problem won't necessarily fall into the given interval.
+        :param types: The types of equations to be used.
+                      Refer to the docstring for the options and the description of each type.
+                      If nothing is given, every type can appear.
+        :param var: The potential variables to be used. The default is just x.
+        :param inequality: If True, the problems will be inequality problems instead.
+                           One of the four inequalities will be randomly chosen for each question.
+        """
+        super().__init__(num_quest, nrange, var=var, inequality=inequality)
+        possible_types = ('fact_standard',
+                          'fact_separated')
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"The problem type {t} is invalid")
+
+        if not types:
+            self.types = possible_types
+        else:
+            self.types = types
+
+    def get_problem(self) -> Math:
+        if self.inequality:
+            middle = choice(['>', '<', Command('geq'), Command('leq')])
+        else:
+            middle = '='
+        var = choice(self.var)
+        prob_type = choice(self.types)
+        lhs: BaseMathClass = None
+        rhs: BaseMathClass = None
+
+        match prob_type:
+            case 'fact_standard':
+                # generate by expanding (ax + b)(cx + d) = 0
+                a, b, c, d = self.draws(4)
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a*c, 'exponent': 2},
+                    {'coefficient': a*d + b*c, 'exponent': 1},
+                    {'coefficient': b*d, 'exponent': 0}
+                ], mix=True).remove_zeros()
+                rhs = TextWrapper(["0"])
+            case 'fact_separated':
+                # generate by expanding (ax + b)(cx + d) = 0 and isolating constant
+                a, b, c, d = self.draws(4)
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a * c, 'exponent': 2},
+                    {'coefficient': a * d + b * c, 'exponent': 1}
+                ], mix=True).remove_zeros()
+                rhs = TextWrapper([str(-b * d)])
+
+        self.num_quest -= 1
+        if random() < 0.5:
+            return Math(inline=True, data= lhs.get_latex() + [middle] + rhs.get_latex())
+        else:
+            return Math(inline=True, data=rhs.get_latex() + [middle] + lhs.get_latex())

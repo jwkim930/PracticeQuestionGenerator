@@ -1,6 +1,7 @@
 from decimal import Decimal
 from abc import ABC, abstractmethod
 from random import shuffle
+from typing import Self
 
 from pylatex import Command, NoEscape
 from pylatex.base_classes import LatexObject
@@ -376,11 +377,29 @@ class MultiVariablePolynomial(BaseMathClass):
         """
         self.terms.append(term)
 
-    def mix(self):
+    def mix(self) -> Self:
         """
         Mixes the order of the terms in the polynomial.
+
+        :return: self for chained method calls
         """
         shuffle(self.terms)
+        return self
+
+    def remove_zeros(self) -> Self:
+        """
+        Removes the terms with 0 coefficient.
+
+        :returns: self for chained method calls
+        """
+        i = 0
+        while i < len(self.terms):
+            term = self.terms[i]
+            if term.coefficient == 0:
+                self.terms.pop(i)
+                i -= 1   # adjust index
+            i += 1
+        return self
 
 
 class Term(MultiVariableTerm):
@@ -397,7 +416,7 @@ class Term(MultiVariableTerm):
         self.variable = variable
 
     @staticmethod
-    def from_dict(var: str, dic: dict[str, int]) -> "Term":
+    def from_dict(var: str, dic: dict[str, NumberArgument]) -> "Term":
         """
         Initialize Term from a dictionary.
 
