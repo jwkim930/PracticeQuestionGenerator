@@ -266,7 +266,7 @@ class MultiVariableTerm(BaseMathEntity):
         self.coefficient = Number(coefficient)
         super().__init__(self.coefficient.sign, False)
         self.coefficient.sign = 1
-        self.variables = [(var[0], Number(var[1])) for var in variables]
+        self.variables = [(var[0], Number(var[1])) for var in variables if var[1] != 0]
 
     def get_signed_coefficient(self) -> Number:
         return self.coefficient * self.sign
@@ -294,13 +294,13 @@ class MultiVariableTerm(BaseMathEntity):
     def __mul__(self, other):
         if isinstance(other, MultiVariableTerm):
             variables = self.variables.copy()
-            for var in other.variables:
-                vs = [v[0] for v in variables]
-                if var[0] not in vs:
-                    variables.append(var)
+            for var, exp in other.variables:
+                all_variables = [v[0] for v in variables]
+                if var not in all_variables:
+                    variables.append((var, exp))
                 else:
-                    i = vs.index(var[0])
-                    variables[i] = (variables[i][0], variables[i][1] + var[1])
+                    i = all_variables.index(var)
+                    variables[i] = (var, variables[i][1] + exp)
             return MultiVariableTerm(self.get_signed_coefficient() * other.get_signed_coefficient(),
                                      *variables)
         elif isinstance(other, MultiVariablePolynomial):
@@ -311,19 +311,22 @@ class MultiVariableTerm(BaseMathEntity):
             raise TypeError(f"Multiplication between MultiVariableTerm and {type(other).__name__} is undefined")
 
     def get_latex(self) -> list[NoEscape]:
+        if self.coefficient == 1 and len(self.variables) == 0:
+            if self.sign == 1:
+                return [NoEscape("1")]
+            else:
+                return [NoEscape("-1")]
+
         result = []
-        if self.coefficient != 1 or len(self.variables) == 0:
-            result.append((self.coefficient * self.sign).dumps())
-        elif self.sign == -1:
+        if self.get_signed_coefficient() == -1:
             result.append(NoEscape("-"))
-        for var in self.variables:
-            if var[1] != 0:
-                exp = ""
-                if var[1] != 1:
-                    exp = var[1].dumps()
-                result.append(NoEscape(f"{var[0]}^{{{exp}}}"))
-            elif self.coefficient in (-1, 1):
-                result.append(NoEscape(1))
+        elif self.coefficient != 1:
+            result.append(self.get_signed_coefficient().dumps())
+        for var, exp in self.variables:
+            if exp != 1:
+                result.append(NoEscape(f"{var}^{{{exp.dumps()}}}"))
+            else:
+                result.append(NoEscape(var))
 
         return result
 
@@ -376,6 +379,25 @@ class MultiVariablePolynomial(BaseMathClass):
         :param term: The term to be added.
         """
         self.terms.append(term)
+
+    def pop(self, index: int) -> MultiVariableTerm:
+        """
+        Removes the term at the index.
+
+        :return: The removed term.
+        """
+        return self.terms.pop(index)
+
+    def __len__(self):
+        return len(self.terms)
+
+    def __getitem__(self, index):
+        return self.terms[index]
+
+    def __setitem__(self, index, value):
+        if not isinstance(value, MultiVariableTerm):
+            raise TypeError(f"{type(value).__name__} cannot be stored in {type(self).__name__}")
+        self.terms[index] = value
 
     def mix(self) -> Self:
         """
@@ -482,8 +504,16 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
                 if t["exponent"] % 1 != 0:
                     raise ValueError("Exponent must be integer for SingleVariablePolynomial")
                 terms.append(Term.from_dict(variable, t))
-            self.degree = max(self.degree, int(terms[-1].variables[0][1]))
+            if terms[-1].variables:
+                self.degree = max(self.degree, int(terms[-1].variables[0][1]))
         super().__init__(terms, mix)
+
+    def append(self, term):
+        super().append(term)
+        if term.variables:
+            self.degree = max(self.degree, int(term.variables[0][1]))
+        elif self.degree == float('-inf'):
+            self.degree = 0
 
 
 class PolynomialFraction(BaseMathClass):

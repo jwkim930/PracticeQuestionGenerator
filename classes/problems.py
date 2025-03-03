@@ -1476,6 +1476,7 @@ class QuadraticEquation(EquationMultiOperation):
 
         fact_standard: ax^2 + bx + c = 0, can be solved by factoring
         fact_separated: ax^2 + bx = c, can be solved by factoring
+        fact_double: ax^2 + bx + c = dx^2 + ex + f, can be solved by factoring
 
 
         :param num_quest: The number of questions to be generated.
@@ -1490,7 +1491,8 @@ class QuadraticEquation(EquationMultiOperation):
         """
         super().__init__(num_quest, nrange, var=var, inequality=inequality)
         possible_types = ('fact_standard',
-                          'fact_separated')
+                          'fact_separated',
+                          'fact_double')
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
@@ -1507,8 +1509,8 @@ class QuadraticEquation(EquationMultiOperation):
             middle = '='
         var = choice(self.var)
         prob_type = choice(self.types)
-        lhs: BaseMathClass = None
-        rhs: BaseMathClass = None
+        lhs = None
+        rhs = None
 
         match prob_type:
             case 'fact_standard':
@@ -1524,13 +1526,37 @@ class QuadraticEquation(EquationMultiOperation):
                 # generate by expanding (ax + b)(cx + d) = 0 and isolating constant
                 a, b, c, d = self.draws(4)
                 lhs = SingleVariablePolynomial(var, [
-                    {'coefficient': a * c, 'exponent': 2},
-                    {'coefficient': a * d + b * c, 'exponent': 1}
+                    {'coefficient': a*c, 'exponent': 2},
+                    {'coefficient': a*d + b*c, 'exponent': 1}
                 ], mix=True).remove_zeros()
                 rhs = TextWrapper([str(-b * d)])
+            case 'fact_double':
+                # generate lhs by expanding (ax + b)(cx + d)
+                a, b, c, d = self.draws(4)
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a*c, 'exponent': 2},
+                    {'coefficient': a*d + b*c, 'exponent': 1},
+                    {'coefficient': b*d, 'exponent': 0}
+                ])
+                rhs = SingleVariablePolynomial(var, [])
+                # separate by generating differences
+                diff = [0, 0, 0]
+                for i in range(3):
+                    if random() < 0.8:   # 80% chance for each term to be separated
+                        diff[i] = self.draw()
+                if diff == [0, 0, 0]:
+                    # at least one term should be separated
+                    diff[randint(0, 2)] = self.draw()
+                for i in range(3):
+                    coef = lhs[i].get_signed_coefficient() + diff[i]
+                    lhs[i].coefficient = Number(coef.mag)
+                    lhs[i].sign = coef.sign
+                    rhs.append(Term(var, diff[i], 2-i))
+                lhs.remove_zeros().mix()
+                rhs.remove_zeros().mix()
 
         self.num_quest -= 1
         if random() < 0.5:
-            return Math(inline=True, data= lhs.get_latex() + [middle] + rhs.get_latex())
+            return Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())
         else:
             return Math(inline=True, data=rhs.get_latex() + [middle] + lhs.get_latex())
