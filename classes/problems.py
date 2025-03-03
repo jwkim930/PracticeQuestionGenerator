@@ -1276,6 +1276,7 @@ class FactorPolynomial(EquationMultiOperation):
                           "quad_numsym",
                           "quad_twosym",
                           "square",
+                          "square_twosym",
                           "diffsq",
                           "quad_combine")
         for t in types:

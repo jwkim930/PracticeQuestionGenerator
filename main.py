@@ -9,11 +9,11 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.FactorPolynomial(100, (-9, 9), "quad_combine", var=('x', 'y', 'k', 'n', 'a', 'b', 'c'))]
+probs = [problems.FactorPolynomial(20, (-6, 6), "square", "square_twosym", "diffsq", var=('x', 'y', 'k', 'n', 'a', 'b', 'c'))]
 prob_name = "Factoring"
 prob_inst = NoEscape("Factor the following polynomials.")
 prob_cols = 1
-mix_up = True   # If True, questions are generated in mixed order.
+mix_up = False   # If True, questions are generated in mixed order.
 
 
 # Don't edit below
