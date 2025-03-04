@@ -763,7 +763,6 @@ class EquationMultiOperation(ProblemBase):
         Every equation requires at least two operations to solve.
         The randomly generated numbers will never be 0.
         A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
-        A denominator will never be 1.
         A fraction will always have distinct numerator and denominator.
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
@@ -1247,6 +1246,12 @@ class FactorPolynomial(EquationMultiOperation):
         mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
         nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
         quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
+        quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
+        quad_twosym: two-variable polynomial that can be factored into two binomials
+        square: a perfect square of a single-variable binomial
+        square_twosym: a perfect square of a two-variable binomial
+        diffsq: the difference of a perfect square monomial and a perfect square constant
+        quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -1263,7 +1268,13 @@ class FactorPolynomial(EquationMultiOperation):
                           "numsym",
                           "mquad",
                           "nquad",
-                          "quad")
+                          "quad",
+                          "quad_numsym",
+                          "quad_twosym",
+                          "square",
+                          "square_twosym",
+                          "diffsq",
+                          "quad_combine")
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
@@ -1273,8 +1284,16 @@ class FactorPolynomial(EquationMultiOperation):
         self.types = types
 
     def get_problem(self):
+        def two_vars() -> tuple[str, str]:
+            if len(self.var) == 1:
+                v1 = self.var[0]
+                v2 = 'y' if var1 == 'x' else 'x'
+            else:
+                v1, v2 = tuple(sample(self.var, 2))
+            return v1, v2
+
         prob_type = choice(self.types)
-        result = []
+        poly = None
 
         match prob_type:
             case "number":
@@ -1286,16 +1305,9 @@ class FactorPolynomial(EquationMultiOperation):
                 terms = []
                 for exp in exps:
                     terms.append(MultiVariableTerm(self.draw(), (var, exp)))
-
-                result.append((MultiVariablePolynomial(terms) * MultiVariableTerm(self.draw(1, -1))).dumps())
+                poly = (MultiVariablePolynomial(terms) * self.draw(1, -1))
             case "symbol":
-                if len(self.var) == 1:
-                    # this type requires two symbols; add one
-                    var1 = self.var[0]
-                    var2 = 'y' if var1 == 'x' else 'x'
-                else:
-                    var1, var2 = tuple(sample(self.var, 2))
-
+                var1, var2 = two_vars()
                 exp_candidates = []
                 for i in range(4):
                     for j in range(4):
@@ -1317,15 +1329,9 @@ class FactorPolynomial(EquationMultiOperation):
                     else:
                         e2 = randint(1, 3)
                 term = MultiVariableTerm(1, (var1, e1), (var2, e2))
-                result.append((MultiVariablePolynomial(terms) * term).dumps())
+                poly = MultiVariablePolynomial(terms) * term
             case "twonum":
-                if len(self.var) == 1:
-                    # this type requires two symbols; add one
-                    var1 = self.var[0]
-                    var2 = 'y' if var1 == 'x' else 'x'
-                else:
-                    var1, var2 = tuple(sample(self.var, 2))
-
+                var1, var2 = two_vars()
                 exp_candidates = []
                 for i in range(4):
                     for j in range(4):
@@ -1340,15 +1346,9 @@ class FactorPolynomial(EquationMultiOperation):
                     terms.append(MultiVariableTerm(self.draw(1, -1), (var1, exp[0]), (var2, exp[1])))
 
                 term = MultiVariableTerm(self.draw())
-                result.append((MultiVariablePolynomial(terms) * term).dumps())
+                poly = MultiVariablePolynomial(terms) * term
             case "numsym":
-                if len(self.var) == 1:
-                    # this type requires two symbols; add one
-                    var1 = self.var[0]
-                    var2 = 'y' if var1 == 'x' else 'x'
-                else:
-                    var1, var2 = tuple(sample(self.var, 2))
-
+                var1, var2 = two_vars()
                 exp_candidates = []
                 for i in range(4):
                     for j in range(4):
@@ -1370,7 +1370,7 @@ class FactorPolynomial(EquationMultiOperation):
                     else:
                         e2 = randint(1, 3)
                 term = MultiVariableTerm(self.draw(), (var1, e1), (var2, e2))
-                result.append((MultiVariablePolynomial(terms) * term).dumps())
+                poly = MultiVariablePolynomial(terms) * term
             case "mquad":
                 var = choice(self.var)
                 n, m = self.draws(2)
@@ -1379,7 +1379,6 @@ class FactorPolynomial(EquationMultiOperation):
                     {"coefficient": n + m, "exponent": 1},
                     {"coefficient": n * m, "exponent": 0}
                 ])
-                result.append(poly.dumps())
             case "nquad":
                 var = choice(self.var)
                 n, m = self.draws(2)
@@ -1389,7 +1388,6 @@ class FactorPolynomial(EquationMultiOperation):
                     {"coefficient": n + s*m, "exponent": 1},
                     {"coefficient": n * m, "exponent": 0}
                 ])
-                result.append(poly.dumps())
             case "quad":
                 var = choice(self.var)
                 a, b, n, m = self.draws(4)
@@ -1400,7 +1398,165 @@ class FactorPolynomial(EquationMultiOperation):
                     {"coefficient": a*m + b*n, "exponent": 1},
                     {"coefficient": n * m, "exponent": 0}
                 ])
-                result.append(poly.dumps())
+            case "quad_numsym":
+                var1, var2 = two_vars()
+                a, b, n, m = self.draws(4)
+                exp1 = randint(0, 4)
+                exp2 = randint(1, 4)
+                poly = MultiVariablePolynomial([
+                    MultiVariableTerm(a * b, (var1, 2)),
+                    MultiVariableTerm(a*m + b*n, (var1, 1)),
+                    MultiVariableTerm(n * m, (var1, 0))
+                ])
+                poly *= MultiVariableTerm(self.draw(), (var1, exp1), (var2, exp2))
+            case "quad_twosym":
+                var1, var2 = two_vars()
+                a, b, n, m = self.draws(4)
+                poly = MultiVariablePolynomial([
+                    MultiVariableTerm(a * b, (var1, 2)),
+                    MultiVariableTerm(a*m + b*n, (var1, 1), (var2, 1)),
+                    MultiVariableTerm(n * m, (var2, 2))
+                ])
+            case "square":
+                var = choice(self.var)
+                a, n = self.draws(2)
+                poly = SingleVariablePolynomial(var, [
+                    {"coefficient": a**2, "exponent": 2},
+                    {"coefficient": 2*a*n, "exponent": 1},
+                    {"coefficient": n**2, "exponent": 0}
+                ])
+            case "square_twosym":
+                var1, var2 = two_vars()
+                a, n = self.draws(2)
+                poly = MultiVariablePolynomial([
+                    MultiVariableTerm(a**2, (var1, 2)),
+                    MultiVariableTerm(2*a*n, (var1, 1), (var2, 1)),
+                    MultiVariableTerm(n**2, (var2, 2))
+                ])
+            case "diffsq":
+                var = choice(self.var)
+                a, n = self.draws(2)
+                poly = SingleVariablePolynomial(var, [
+                    {"coefficient": a**2, "exponent": 2},
+                    {"coefficient": -n**2, "exponent": 0}
+                ])
+            case "quad_combine":
+                var = choice(self.var)
+                a, b, n, m = self.draws(4)   # (ax + n)(bx + m)
+                # c[0]x^2 + c[1]x + c[2]
+                c = [a * b, a*m + b*n, n * m]
+                s = [0, 0, 0]   # amount to subtract from coefficients
+                while s == [0, 0, 0]:
+                    for i in range(3):
+                        if random() < 0.8:   # 20% chance to be left at 0
+                            s[i] = self.draw(c[i])
+                poly = SingleVariablePolynomial(var, [
+                    Term(var, c[0] - s[0], 2),
+                    Term(var, c[1] - s[1], 1),
+                    Term(var, c[2] - s[2], 0)
+                ])
+                for i in range(3):
+                    if s[i] != 0:
+                        poly.append(Term(var, s[i], 2-i))
+                poly.mix()
 
         self.num_quest -= 1
-        return Math(inline=True, data=result)
+        return Math(inline=True, data=[poly.dumps()])
+
+
+class QuadraticEquation(EquationMultiOperation):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str, var=('x',), inequality=False):
+        r"""
+        Initializes a problem where a quadratic equation must be solved.
+        The randomly generated numbers will never be 0.
+        A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+        A fraction will always have distinct numerator and denominator.
+
+        Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
+
+        fact_standard: ax^2 + bx + c = 0, can be solved by factoring
+        fact_separated: ax^2 + bx = c, can be solved by factoring
+        fact_double: ax^2 + bx + c = dx^2 + ex + f, can be solved by factoring
+
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for generating the numbers in the equation, (begin, end) inclusive.
+                       The numbers in the actual problem won't necessarily fall into the given interval.
+        :param types: The types of equations to be used.
+                      Refer to the docstring for the options and the description of each type.
+                      If nothing is given, every type can appear.
+        :param var: The potential variables to be used. The default is just x.
+        :param inequality: If True, the problems will be inequality problems instead.
+                           One of the four inequalities will be randomly chosen for each question.
+        """
+        super().__init__(num_quest, nrange, var=var, inequality=inequality)
+        possible_types = ('fact_standard',
+                          'fact_separated',
+                          'fact_double')
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"The problem type {t} is invalid")
+
+        if not types:
+            self.types = possible_types
+        else:
+            self.types = types
+
+    def get_problem(self) -> Math:
+        if self.inequality:
+            middle = choice(['>', '<', Command('geq'), Command('leq')])
+        else:
+            middle = '='
+        var = choice(self.var)
+        prob_type = choice(self.types)
+        lhs = None
+        rhs = None
+
+        match prob_type:
+            case 'fact_standard':
+                # generate by expanding (ax + b)(cx + d) = 0
+                a, b, c, d = self.draws(4)
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a*c, 'exponent': 2},
+                    {'coefficient': a*d + b*c, 'exponent': 1},
+                    {'coefficient': b*d, 'exponent': 0}
+                ], mix=True).remove_zeros()
+                rhs = TextWrapper(["0"])
+            case 'fact_separated':
+                # generate by expanding (ax + b)(cx + d) = 0 and isolating constant
+                a, b, c, d = self.draws(4)
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a*c, 'exponent': 2},
+                    {'coefficient': a*d + b*c, 'exponent': 1}
+                ], mix=True).remove_zeros()
+                rhs = TextWrapper([str(-b * d)])
+            case 'fact_double':
+                # generate lhs by expanding (ax + b)(cx + d)
+                a, b, c, d = self.draws(4)
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a*c, 'exponent': 2},
+                    {'coefficient': a*d + b*c, 'exponent': 1},
+                    {'coefficient': b*d, 'exponent': 0}
+                ])
+                rhs = SingleVariablePolynomial(var, [])
+                # separate by generating differences
+                diff = [0, 0, 0]
+                for i in range(3):
+                    if random() < 0.8:   # 80% chance for each term to be separated
+                        diff[i] = self.draw()
+                if diff == [0, 0, 0]:
+                    # at least one term should be separated
+                    diff[randint(0, 2)] = self.draw()
+                for i in range(3):
+                    coef = lhs[i].get_signed_coefficient() + diff[i]
+                    lhs[i].coefficient = Number(coef.mag)
+                    lhs[i].sign = coef.sign
+                    rhs.append(Term(var, diff[i], 2-i))
+                lhs.remove_zeros().mix()
+                rhs.remove_zeros().mix()
+
+        self.num_quest -= 1
+        if random() < 0.5:
+            return Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())
+        else:
+            return Math(inline=True, data=rhs.get_latex() + [middle] + lhs.get_latex())
