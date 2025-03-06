@@ -2,6 +2,7 @@ from decimal import Decimal
 from abc import ABC, abstractmethod
 from random import shuffle
 from typing import Self
+import math
 
 from pylatex import Command, NoEscape
 from pylatex.base_classes import LatexObject
@@ -134,6 +135,15 @@ class Fraction(BaseMathEntity):
         else:
             raise TypeError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
 
+    def simplified(self) -> "Fraction":
+        """
+        Returns the simplified fraction as a new instance.
+
+        :returns: The simplified fraction.
+        """
+        sign = (self.num * self.denom) // abs(self.num * self.denom)
+        d = math.gcd(self.num, self.denom)
+        return Fraction(abs(self.num // d), abs(self.denom // d), sign=sign, big=self.big, wrap=self.wrap)
 
 type NumberArgument = int | float | Decimal | str | Number
 
@@ -332,7 +342,7 @@ class MultiVariableTerm(BaseMathEntity):
 
 
 class MultiVariablePolynomial(BaseMathClass):
-    def __init__(self, terms: list[MultiVariableTerm], mix=False):
+    def __init__(self, terms: list[MultiVariableTerm], mix=False, wrap=False):
         """
         A polynomial with integer coefficients and one variable.
         The input data can be a list of dictionaries,
@@ -340,10 +350,12 @@ class MultiVariablePolynomial(BaseMathClass):
 
         :param terms: The terms of the polynomial.
         :param mix: If True, the terms will be shuffled upon initialization.
+        :param wrap: If True, get_latex will return the polynomial enclosed in parentheses.
         """
         self.terms = terms.copy()
         if mix:
             self.mix()
+        self.wrap = wrap
 
     def __mul__(self, other):
         if isinstance(other, MultiVariableTerm):
@@ -360,15 +372,22 @@ class MultiVariablePolynomial(BaseMathClass):
         else:
             raise TypeError(f"Multiplication between MultiVariablePolynomial and {type(other).__name__} is undefined")
 
-    def get_latex(self) -> list[NoEscape]:
+    def get_latex(self) -> list[Command | NoEscape]:
+        result = []
+        if self.wrap:
+            result.append(Command("left("))
+
         # first iteration
-        result = [self.terms[0].dumps()]
+        result.append(self.terms[0].dumps())
 
         # later iterations
         for term in self.terms[1:]:
             if term.sign == 1:
                 result.append(NoEscape("+"))
             result.append(term.dumps())
+
+        if self.wrap:
+            result.append(Command("right)"))
 
         return result
 
@@ -460,7 +479,7 @@ class Term(MultiVariableTerm):
 
 
 class SingleVariablePolynomial(MultiVariablePolynomial):
-    def __init__(self, variable: str, data: list[dict[str, int] | Term], mix=False):
+    def __init__(self, variable: str, data: list[dict[str, int] | Term], mix=False, wrap=False):
         """
         A polynomial with integer coefficients and one variable.
         The input data can be a list of dictionaries,
@@ -489,6 +508,7 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
         :param variable: The variable to be used.
         :param data: The list of data as explained above, or as a Term object.
         :param mix: If True, the terms will be shuffled upon initialization.
+        :param wrap: If True, get_latex will return the polynomial enclosed in parentheses.
         """
         self.variable = variable
         terms = []
@@ -506,7 +526,7 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
                 terms.append(Term.from_dict(variable, t))
             if terms[-1].variables:
                 self.degree = max(self.degree, int(terms[-1].variables[0][1]))
-        super().__init__(terms, mix)
+        super().__init__(terms, mix, wrap)
 
     def append(self, term):
         super().append(term)

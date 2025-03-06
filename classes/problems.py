@@ -231,7 +231,7 @@ class GraphingProblem(ProblemBase, ABC):
         super().__init__(num_quest, '0cm')
 
     @abstractmethod
-    def get_random_function(self) -> str:
+    def get_random_function(self) -> NoEscape:
         """
         Returns a function with randomized parameters.
         """
@@ -247,37 +247,81 @@ class GraphingProblem(ProblemBase, ABC):
 
 
 class LinearGraphingProblem(GraphingProblem):
-    def __init__(self, num_quest: int, a_range: tuple[int, int], b_range: tuple[int, int]):
+    def __init__(self, num_quest: int, num_range: tuple[int, int], *types: str):
         """
         Initializes a graphing problem for a linear function.
-        The produced function will be in the form ax + b.
         It requires graphing_grid.png in the document_output folder.
 
+        The possible types are the following (there's a 50% chance the coefficient a will be a fraction):
+        - si: ax + b, a != 0
+        - sp: a(x - h) + k, a, h != 0
+
         :param num_quest: The number of questions to be generated.
-        :param a_range: The range for the coefficient, (begin, end) inclusive. 0 is automatically excluded.
-        :param b_range: The range for the constant, (begin, end) inclusive.
+        :param num_range: The range for the parameters, (begin, end) inclusive.
+                          This must contain at least two integers where at least one is non-zero.
+        :param types: The possible types of the problems. Refer to docstring for the list of all options.
         """
         super().__init__(num_quest)
-        self.a_range = a_range
-        self.b_range = b_range
+        if num_range[1] - num_range[0] < 2:
+            raise ValueError("Fewer than two integers found in the number range")
+
+        possible_types = ("si", "sp")
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"Problem type {t} is not a valid type")
+        if not types:
+            types = possible_types
+
+        self.num_range = num_range
+        self.types = types
 
     def get_random_function(self):
-        a = randint(self.a_range[0], self.a_range[1])
-        while a == 0:
-            a = randint(self.a_range[0], self.a_range[1])
-        b = randint(self.b_range[0], self.b_range[1])
-        a_str = ''
-        if a == -1:
-            a_str = '-'
-        elif a != 1:
-            a_str = str(a)
-        b_str = ''
-        if b < 0:
-            b_str = '-' + str(-b)
-        elif b != 0:
-            b_str = '+' + str(b)
+        prob = choice(self.types)
+        result = NoEscape()
 
-        return a_str + 'x' + b_str
+        if random() < 0.5:
+            # a is integer
+            a = randint(self.num_range[0], self.num_range[1])
+            while a == 0:
+                a = randint(self.num_range[0], self.num_range[1])
+
+            # wrap in BaseMathClass for the dumps() call later
+            if a == -1:
+                a = TextWrapper(["-"])
+            elif a == 1:
+                a = TextWrapper()
+            else:
+                a = Number(a)
+        else:
+            # a is fraction
+            a = Fraction(1, 1)
+            while a.denom == 1:
+                num = randint(self.num_range[0], self.num_range[1])
+                while num == 0:
+                    num = randint(self.num_range[0], self.num_range[1])
+                denom = randint(self.num_range[0], self.num_range[1])
+                while denom == 0:
+                    denom = randint(self.num_range[0], self.num_range[1])
+                a = Fraction(abs(num), abs(denom), (num * denom) // abs(num * denom), big=False).simplified()
+
+        match prob:
+            case "si":
+                b = randint(self.num_range[0], self.num_range[1])
+                poly = UnsafePolynomial(a.dumps() + "x", Number(b))
+                result = poly.dumps()
+            case "sp":
+                h = randint(self.num_range[0], self.num_range[1])
+                while h == 0:
+                    h = randint(self.num_range[0], self.num_range[1])
+                k = randint(self.num_range[0], self.num_range[1])
+                mini_poly = SingleVariablePolynomial("x", [
+                    {"coefficient": 1, "exponent": 1},
+                    {"coefficient": -h, "exponent": 0}
+                ], wrap=True)
+                poly = UnsafePolynomial(a.dumps() + mini_poly.dumps(), Number(k))
+                result = poly.dumps()
+
+        return result
 
 
 class SquareRootProblem(ProblemBase):
