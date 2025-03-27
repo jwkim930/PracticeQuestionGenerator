@@ -10,13 +10,10 @@ from classes.environments import Multicols
 
 
 # Parameters (edit here)
-probs = [problems.PolynomialSimplify(4, (-5, 5), (2, 3)),
-         problems.PolynomialSubtract(3, (-5, 5), (1, 3), min_term_count=2),
-         problems.PolynomialMultiply(3, (-5, 5), (1, 2), 1),
-         problems.PolynomialDivide(3, (-5, 5), (0, 6), no_constant=True)]
-prob_name = "Polynomial"
+probs = [problems.PolynomialDivide(100, (-9, 9), (0, 6), no_constant=True)]
+prob_name = "Test"
 prob_inst = NoEscape("Simplify the following polynomials.")
-prob_cols = 1
+prob_cols = 2
 mix_up = False   # If True, questions are generated in mixed order.
 
 

@@ -559,7 +559,7 @@ class PolynomialSimplify(ProblemBase):
                             The probabilities of getting 2, 3, 4, etc. like terms are equal.
                             Has no effect if max_like=1.
         """
-        super().__init__(num_quest, '4cm')
+        super().__init__(num_quest, '0cm')
         if crange[0] > crange[1]:
             raise ValueError("The coefficient range contains no number")
         if crange[1] - crange[0] == 0 and crange[0] == 0:
@@ -747,10 +747,35 @@ class PolynomialDivide(PolynomialSimplify):
 
     def get_problem(self) -> Math:
         if self.no_constant:
-            divisor = self.generate_polynomial(randint(max(1, self.drange[0]), self.drange[1]), 1)
+            # choose the number of terms for the dividend
+            # dividend must have a non-constant common factor, so it cannot have a constant term
+            # and the max number of terms is equal to its degree
+            nterms = randint(self.drange[0] + 1, self.drange[1])
+            # the quotient should have the same number of terms as the dividend
+            # with no_constant, make sure the degree of the quotient is not the maximum degree
+            # since that will force the divisor to be a constant
+            min_degree = max(self.drange[0], nterms - 1)
+            max_degree = max(min_degree, self.drange[1] - 1)
+            quotient = self.generate_polynomial(randint(min_degree, max_degree), nterms)
+            # the degree of the dividend is the sum of the degrees of the divisor and the quotient
+            # so they must add up to be at most the maximum degree
+            max_degree = self.drange[1] - quotient.degree
+            min_degree = min(max(self.drange[0], 1), max_degree)
+            divisor = self.generate_polynomial(randint(min_degree, max_degree), 1)
         else:
-            divisor = self.generate_polynomial(num_terms=1)
-        quotient = self.generate_polynomial(randint(0, self.drange[1] - divisor.degree))
+            # choose the number of terms for the dividend
+            # the max number of terms is one more than its degree as there can be a constant term
+            nterms = randint(self.drange[0] + 1, self.drange[1] + 1)
+            # the quotient should have the same number of terms as the dividend
+            min_degree = max(self.drange[0], nterms - 1)
+            max_degree = max(min_degree, self.drange[1])
+            quotient = self.generate_polynomial(randint(min_degree, max_degree), nterms)
+            # the degree of the dividend is the sum of the degrees of the divisor and the quotient
+            # so they must add up to be at most the maximum degree
+            max_degree = self.drange[1] - quotient.degree
+            min_degree = min(self.drange[0], max_degree)
+            divisor = self.generate_polynomial(randint(min_degree, max_degree), 1)
+
         dividend = divisor * quotient
 
         self.num_quest -= 1
