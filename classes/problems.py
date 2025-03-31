@@ -2,10 +2,12 @@ from random import randint, choice, shuffle, random, sample, choices
 from decimal import Decimal
 from abc import ABC, abstractmethod
 
-from pylatex import Math, Alignat, Command, Tabular, MiniPage
+from pylatex import Math, Command, Tabular, MiniPage
 from pylatex.base_classes import LatexObject
 from pylatex.utils import NoEscape
 import math
+import numpy as np
+import sympy as sp
 
 from classes.math_objects import *
 
@@ -21,7 +23,7 @@ class ProblemBase(ABC):
         self.vspace = vspace
 
     @abstractmethod
-    def get_problem(self) -> Math | Alignat | NoEscape:
+    def get_problem(self) -> Math | NoEscape:
         """
         Returns a practice problem.
         Decrements num_quest in the object.
@@ -1604,3 +1606,174 @@ class QuadraticEquation(EquationMultiOperation):
             return Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())
         else:
             return Math(inline=True, data=rhs.get_latex() + [middle] + lhs.get_latex())
+
+
+class LinearSystem(ProblemBase):
+    def __init__(self, num_quest: int, crange: tuple[int, int], size: int, *types: str, var: tuple[str, ...]=tuple(), solvability=0):
+        """
+        Initializes a problem where a system of linear equations must be solved.
+
+        The possible problem types are as follows:
+        - standard: size * size system in standard form (Ax = b)
+
+        :param num_quest: The number of questions to be generated.
+        :param crange: The range of generated coefficients, (begin, end) inclusive.
+        :param size: The number of variables in the problem. Must be at least 2.
+        :param types: The problem types to be used (one will be randomly chosen for each problem).
+                      Refer to the docstring for the possible types. If omitted, the problems will
+                      be drawn from all possible types.
+        :param var: The variable names to be used. If fewer than size, more will be added
+                    in the priority x, y, z, w, t, u, v, p, q, r to match size. If this runs out,
+                    the code results in an error. If more variables than size are provided, then
+                    they will be randomly drawn from the tuple.
+        :param solvability: When set to 0 (default), the system has a unique solution.
+                            When set to 1, the system has no solution.
+                            When set to 2, the system has infinitely many solutions.
+                            When set to 3, the system has 0, 1, or infinitely many solutions by uniform probability.
+        """
+        super().__init__(num_quest, "6cm")
+        if size < 2:
+            raise ValueError("The problem size must be 2")
+        possible_types = (
+            "standard",
+        )
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"Problem type {t} is invalid; refer to docstring for the list of possible types")
+        if not types:
+            types = possible_types
+        if solvability not in (0, 1, 2, 3):
+            raise ValueError("Invalid argument value for solvability")
+        if len(var) < size:
+            for v in ('x', 'y', 'z', 'w', 't', 'u', 'v', 'p', 'q', 'r'):
+                if v not in var:
+                    var = (*var, v)
+                if len(var) == size:
+                    break
+            if len(var) < size:
+                raise ValueError("Not enough variables for the given size; you must manually assign additional variables")
+
+        self.crange = crange
+        self.size = size
+        self.var = var
+        self.types = types
+        self.solvability = solvability
+
+    def generate_standard_system(self) -> np.ndarray:
+        """
+        Returns a size * (size + 1) integer array that represents the augmented coeffiicient matrix
+        Ax = b as (A|b). The system may or may not be consistent based on the solvability value.
+        """
+        if self.solvability == 0 or (self.solvability == 3 and random() < 1/3):
+            system = np.random.randint(self.crange[0], self.crange[1] + 1, (self.size, self.size + 1))
+            for _ in range(100):
+                if np.linalg.det(system[:, :-1]) == 0:
+                    system = np.random.randint(self.crange[0], self.crange[1] + 1, (self.size, self.size + 1))
+                else:
+                    break
+            if np.linalg.det(system[:, :-1]) == 0:
+                raise ValueError(f"The given crange of {self.crange} cannot seem to generate a consistent system")
+            return system
+        else:
+            # choose the LHS matrix rank
+            rank = random()
+            if rank < 0.8:
+                # 80% chance to have rank 2 or more
+                # still gives rank 1 if size is 2
+                rank = randint(min(self.size - 1, 2), self.size - 1)
+            else:
+                # 20% chance to have rank 1
+                rank = 1
+
+            def generate_independent_rows():
+                result = np.random.randint(self.crange[0], self.crange[1] + 1, (rank, self.size))
+                if rank > 1:
+                    # check linear independence
+                    for _ in range(100):
+                        sol = sp.solvers.linsolve(sp.Matrix(np.hstack((result.T, np.zeros((self.size, 1), dtype=np.int64)))))
+                        if len(sol) == 1:
+                            break
+                    if len(sol) != 1:
+                        raise ValueError(f"The given crange of {self.crange} cannot seem to generate a system with rank {rank}")
+                return result
+
+            # generate dependent rows using linear combinations
+            done = False
+            for _ in range(100):
+                system = generate_independent_rows()
+                valid_system = True
+                while system.shape[0] < self.size and valid_system:
+                    basis = system[:rank, :]
+                    valid_row = False
+                    for _ in range(1000):
+                        # try a random combination and see if it falls inside the range
+                        combined = np.zeros(self.size, np.int64)
+                        factors = np.random.randint(-5, 6, rank)
+                        while not np.any(factors):
+                            factors = np.random.randint(-5, 6, rank)
+                        for i in range(rank):
+                            combined += factors[i] * basis[i]
+                        if np.all(self.crange[0] <= combined) and np.all(combined <= self.crange[1]):
+                            valid_row = True
+                            break
+                    if valid_row:
+                        system = np.vstack((system, combined))
+                    else:
+                        valid_system = False
+                if valid_system:
+                    done = True
+                    break
+            if not done:
+                raise ValueError(f"The given crange cannot seem to generate a system with rank {rank}")
+            # append the appropriate RHS
+            if self.solvability == 1 or (self.solvability == 3 and random() < 0.5):
+                # choose RHS to have no solution
+                # this is more likely, so just use a random RHS and check
+                done = False
+                for _ in range(100):
+                    rhs = np.random.randint(self.crange[0], self.crange[1] + 1, (self.size, 1))
+                    if sp.solvers.linsolve(sp.Matrix(np.hstack((system, rhs)))).is_empty:
+                        done = True
+                        break
+                assert done, f"No RHS seems to result in having no solution, the LHS is:\n{system}"
+                return np.hstack((system, rhs))
+            else:
+                # choose RHS to have infinitely many solutions
+                # try different vectors from column space that fit inside the range
+                column_space = [np.array(a).astype(np.int64) for a in sp.Matrix(system).columnspace()]
+                for _ in range(1000):
+                    combined = np.zeros((self.size, 1), np.int64)
+                    factors = np.random.randint(-5, 6, len(column_space))
+                    while not np.any(factors):
+                        factors = np.random.randint(-5, 6, len(column_space))
+                    for i in range(len(column_space)):
+                        combined += factors[i] * column_space[i]
+                    if np.all(self.crange[0] <= combined) and np.all(combined <= self.crange[1]):
+                        return np.hstack((system, combined))
+                # end of loop reached without finding a valid RHS; simply try again
+                print("WARNING: failed attempt at generating a system with infinitely many solutions; reattempting with a different LHS")
+                return self.generate_standard_system()
+
+    def get_problem(self) -> Math:
+        problem = choice(self.types)
+        variables = sample(self.var, self.size)
+        result = [r"\begin{cases}"]
+
+        match problem:
+            case "standard":
+                coefficients = self.generate_standard_system()
+                for i in range(self.size):
+                    lhs = list(coefficients[i, :-1])
+                    rhs = coefficients[i, -1]
+                    lhs_terms = []
+                    for j, n in enumerate(lhs):
+                        lhs_terms.append(Term(variables[j], int(n), 1))
+                    lhs = MultiVariablePolynomial(lhs_terms).remove_zeros()
+                    result.append(lhs.dumps() + "&=" + str(rhs))
+                    result.append(r"\\" + "\n")
+        result.pop(-1)   # remove the last newline
+        result.append(r"\end{cases}")
+        result = [NoEscape(s) for s in result]
+
+        self.num_quest -= 1
+        return Math(inline=True, data=result)

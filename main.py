@@ -9,8 +9,8 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.LinearGraphingProblem(100, (-9, 9), "sp")]
-prob_name = "Linear Graphing"
+probs = [problems.LinearSystem(100, (-9, 9), 3, solvability=3)]
+prob_name = "Test"
 prob_inst = NoEscape("Sketch the graph of $y = f(x)$ for the following linear functions.")
 prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
