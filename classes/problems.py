@@ -1612,6 +1612,7 @@ class LinearSystem(ProblemBase):
     def __init__(self, num_quest: int, crange: tuple[int, int], size: int, *types: str, var: tuple[str, ...]=tuple(), solvability=0):
         """
         Initializes a problem where a system of linear equations must be solved.
+        In standard form, the rank of the coefficient matrix will be at least 2 unless size is 1.
 
         The possible problem types are as follows:
         - standard: size * size system in standard form (Ax = b)
@@ -1676,14 +1677,7 @@ class LinearSystem(ProblemBase):
             return system
         else:
             # choose the LHS matrix rank
-            rank = random()
-            if rank < 0.8:
-                # 80% chance to have rank 2 or more
-                # still gives rank 1 if size is 2
-                rank = randint(min(self.size - 1, 2), self.size - 1)
-            else:
-                # 20% chance to have rank 1
-                rank = 1
+            rank = randint(min(self.size - 1, 2), self.size - 1)
 
             def generate_independent_rows():
                 result = np.random.randint(self.crange[0], self.crange[1] + 1, (rank, self.size))

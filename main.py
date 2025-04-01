@@ -9,9 +9,12 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.LinearSystem(100, (-9, 9), 3, solvability=3)]
-prob_name = "Test"
-prob_inst = NoEscape("Sketch the graph of $y = f(x)$ for the following linear functions.")
+probs = [problems.LinearSystem(8, (-9, 9), 2, solvability=0),
+         problems.LinearSystem(1, (-15, 15), 2, solvability=1),
+         problems.LinearSystem(1, (-15, 15), 2, solvability=2),
+         problems.LinearSystem(4, (-9, 9), 3, solvability=3)]
+prob_name = "Linear System"
+prob_inst = NoEscape("Find the values of the variables that satisfy the following systems of linear equations.")
 prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 
