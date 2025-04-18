@@ -1771,3 +1771,61 @@ class LinearSystem(ProblemBase):
 
         self.num_quest -= 1
         return Math(inline=True, data=result)
+
+
+class RadicalSimplify(ProblemBase):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], erange=(2, 2)):
+        """
+        Generates problems where a radical expression must be simplified.
+        The base of the generated radical is a * b^e,
+        where a, b are drawn from nrange and e is drawn from erange.
+        a, b are never perfect e-power.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range of values used to generate the radical expressions, (begin, end) inclusive.
+                       The lower bound must be at least 2 and the range must contain
+                       at least one integer that is not a perfect e-power for all possible values in erange.
+        :param erange: The range of possible exponents of the radical expression, (begin, end) inclusive.
+                       The lower bound must be at least 2 and must contain at least one integer.
+                       By default, all exponents will be 2.
+        """
+        if nrange[0] < 2 or erange[0] < 2:
+            raise ValueError("The lower bound of the ranges must be at least 2")
+        if nrange[0] > nrange[1] or erange[0] > erange[1]:
+            raise ValueError("At least one of the ranges do not contain any integer")
+        for e in range(erange[0], erange[1] + 1):
+            valid = False
+            n = nrange[0]
+            while not valid:
+                valid = RadicalSimplify.is_perfect_power(n, e)
+                if n > nrange[1]:
+                    raise ValueError(f"The given nrange cannot generate a non-perfect-{e}-power")
+                else:
+                    n += 1
+
+        super().__init__(num_quest, "0cm")
+        self.nrange = nrange
+        self.erange = erange
+
+    @staticmethod
+    def is_perfect_power(n: int, e: int, tol=0.0001) -> bool:
+        """
+        Returns true if \sqrt[e]{n} evaluates to an integer, false otherwise.
+        """
+        return (n**(1/e)) % 1 > tol
+
+    def get_problem(self) -> Math:
+        e = randint(self.erange[0], self.erange[1])
+        a = randint(self.nrange[0], self.nrange[1])
+        while not RadicalSimplify.is_perfect_power(a, e):
+            # this loop should theoretically end thanks to the check in __init__
+            a = randint(self.nrange[0], self.nrange[1])
+        b = randint(self.nrange[0], self.nrange[1])
+        while not RadicalSimplify.is_perfect_power(b, e):
+            b = randint(self.nrange[0], self.nrange[1])
+
+        self.num_quest -= 1
+        if e == 2:
+            return Math(inline=True, data=[Command("sqrt", a * b**e), "="])
+        else:
+            return Math(inline=True, data=[Command("sqrt", a * b**e, e), "="])
