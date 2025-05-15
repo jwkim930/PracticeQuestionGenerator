@@ -1880,11 +1880,12 @@ class QuadraticGraphingFactorable(GraphingProblem, FactorPolynomial):
                             "symbol",
                             "twonum",
                             "numsym",
-                            "nquad",
                             "quad_numsym",
                             "quad_twosym",
                             "square_twosym")
         self.types = tuple(t for t in self.types if t not in prohibited_types)
+        if not self.types:
+            raise ValueError("All the provided problem types are invalid for quadratic graphing")
 
     def get_random_function(self) -> NoEscape:
         return self.get_random_polynomial(choice(self.types)).dumps()

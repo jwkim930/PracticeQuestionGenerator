@@ -9,9 +9,11 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.QuadraticGraphingFactorable(100, (-4, 4))]
-prob_name = "Test"
-prob_inst = NoEscape("Graph.")
+probs = [problems.QuadraticGraphingFactorable(1, (-5, 5), "mquad"),
+         problems.QuadraticGraphingFactorable(2, (-5, 5), "nquad"),
+         problems.QuadraticGraphingFactorable(6, (-5, 5))]
+prob_name = "Quadratic Graphing"
+prob_inst = NoEscape("Find the $x$-intercepts of the following quadratic functions, find the vertex using the $x$-intercepts, then use it to sketch the graph of the function.")
 prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 
