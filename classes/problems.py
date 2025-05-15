@@ -1329,16 +1329,40 @@ class FactorPolynomial(EquationMultiOperation):
             types = possible_types
         self.types = types
 
-    def get_problem(self):
+    def get_random_polynomial(self, prob_type: str) -> MultiVariablePolynomial:
+        """
+        Generates a polynomial with random non-zero parameters.
+        A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+        A denominator will never be 1.
+        A fraction will always have distinct numerator and denominator.
+
+        Possible types (the variable is always x, the rest are random. The order of terms may be randomized):
+
+        number: single-variable polynomial with a common integer factor
+        symbol: two-variable polynomial with a common variable factor
+        twonum: two-variable polynomial with a common integer factor
+        numsym: two-variable polynomial with common integer and variable factors
+        mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
+        nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
+        quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
+        quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
+        quad_twosym: two-variable polynomial that can be factored into two binomials
+        square: a perfect square of a single-variable binomial
+        square_twosym: a perfect square of a two-variable binomial
+        diffsq: the difference of a perfect square monomial and a perfect square constant
+        quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
+
+        :param prob_type: The type of polynomial to be used.
+                          Refer to the docstring for the options and the description of each type.
+        """
         def two_vars() -> tuple[str, str]:
             if len(self.var) == 1:
                 v1 = self.var[0]
-                v2 = 'y' if var1 == 'x' else 'x'
+                v2 = 'y' if v1 == 'x' else 'x'
             else:
                 v1, v2 = tuple(sample(self.var, 2))
             return v1, v2
 
-        prob_type = choice(self.types)
         poly = None
 
         match prob_type:
@@ -1506,6 +1530,11 @@ class FactorPolynomial(EquationMultiOperation):
                         poly.append(Term(var, s[i], 2-i))
                 poly.mix()
 
+        return poly
+
+    def get_problem(self):
+        prob_type = choice(self.types)
+        poly = self.get_random_polynomial(prob_type)
         self.num_quest -= 1
         return Math(inline=True, data=[poly.dumps()])
 
@@ -1810,7 +1839,7 @@ class RadicalSimplify(ProblemBase):
     @staticmethod
     def is_perfect_power(n: int, e: int, tol=0.0001) -> bool:
         """
-        Returns true if \sqrt[e]{n} evaluates to an integer, false otherwise.
+        Returns true if \\sqrt[e]{n} evaluates to an integer, false otherwise.
         """
         return (n**(1/e)) % 1 > tol
 
@@ -1829,3 +1858,36 @@ class RadicalSimplify(ProblemBase):
             return Math(inline=True, data=[Command("sqrt", a * b**e), "="])
         else:
             return Math(inline=True, data=[Command("sqrt", a * b**e, e), "="])
+
+
+class QuadraticGraphingFactorable(GraphingProblem, FactorPolynomial):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str):
+        """
+        Initializes a problem where a quadratic function must be graphed,
+        where the quadratic function can be factored.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for the numbers in the polynomial, (begin, end) inclusive.
+        :param types: The types of polynomials to be used.
+                      Refer to FactorPolynomial's docstring for the options.
+                      You can only use quadratic types that use one variable, others will be ignored.
+                      If nothing is given, every type can appear.
+        """
+        GraphingProblem.__init__(self, num_quest)
+        FactorPolynomial.__init__(self, num_quest, nrange, *types, var=('x',))
+        # remove non-quadratic problems or those with more than one variable
+        prohibited_types = ("number",
+                            "symbol",
+                            "twonum",
+                            "numsym",
+                            "nquad",
+                            "quad_numsym",
+                            "quad_twosym",
+                            "square_twosym")
+        self.types = tuple(t for t in self.types if t not in prohibited_types)
+
+    def get_random_function(self) -> NoEscape:
+        return self.get_random_polynomial(choice(self.types)).dumps()
+
+    def get_problem(self) -> NoEscape:
+        return GraphingProblem.get_problem(self)

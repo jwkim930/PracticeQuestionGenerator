@@ -276,7 +276,7 @@ class MultiVariableTerm(BaseMathEntity):
         self.coefficient = Number(coefficient)
         super().__init__(self.coefficient.sign, False)
         self.coefficient.sign = 1
-        self.variables = [(var[0], Number(var[1])) for var in variables if var[1] != 0]
+        self.variables = [(var[0], Number(var[1])) for var in variables]
 
     def get_signed_coefficient(self) -> Number:
         return self.coefficient * self.sign
@@ -332,11 +332,18 @@ class MultiVariableTerm(BaseMathEntity):
             result.append(NoEscape("-"))
         elif self.coefficient != 1:
             result.append(self.get_signed_coefficient().dumps())
+        no_variable = True
         for var, exp in self.variables:
-            if exp != 1:
+            if exp == 0:
+                continue
+            elif exp != 1:
                 result.append(NoEscape(f"{var}^{{{exp.dumps()}}}"))
             else:
                 result.append(NoEscape(var))
+            no_variable = False
+        if no_variable and self.coefficient == 1:
+            # coefficient is +-1 and no variables with nonzero exponent
+            result.append(NoEscape("1"))
 
         return result
 
@@ -358,7 +365,7 @@ class MultiVariablePolynomial(BaseMathClass):
         self.wrap = wrap
 
     def __mul__(self, other):
-        if isinstance(other, MultiVariableTerm):
+        if isinstance(other, MultiVariableTerm) or type(other) in (int, float, Decimal, Number):
             terms = self.terms.copy()
             for i in range(len(terms)):
                 terms[i] = terms[i] * other

@@ -9,10 +9,10 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.RadicalSimplify(100, (2, 9), (2, 3))]
+probs = [problems.QuadraticGraphingFactorable(100, (-4, 4))]
 prob_name = "Test"
-prob_inst = NoEscape("Testing.")
-prob_cols = 2
+prob_inst = NoEscape("Graph.")
+prob_cols = 1
 mix_up = False   # If True, questions are generated in mixed order.
 
 
