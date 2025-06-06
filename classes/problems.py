@@ -1826,7 +1826,7 @@ class RadicalSimplify(ProblemBase):
             valid = False
             n = nrange[0]
             while not valid:
-                valid = RadicalSimplify.is_perfect_power(n, e)
+                valid = RadicalSimplify.not_perfect_power(n, e)
                 if n > nrange[1]:
                     raise ValueError(f"The given nrange cannot generate a non-perfect-{e}-power")
                 else:
@@ -1837,20 +1837,20 @@ class RadicalSimplify(ProblemBase):
         self.erange = erange
 
     @staticmethod
-    def is_perfect_power(n: int, e: int, tol=0.0001) -> bool:
+    def not_perfect_power(n: int, e: int, tol=0.0001) -> bool:
         """
-        Returns true if \\sqrt[e]{n} evaluates to an integer, false otherwise.
+        Returns True if \\sqrt[e]{n} doesn't evaluate to an integer, False otherwise.
         """
         return (n**(1/e)) % 1 > tol
 
     def get_problem(self) -> Math:
         e = randint(self.erange[0], self.erange[1])
         a = randint(self.nrange[0], self.nrange[1])
-        while not RadicalSimplify.is_perfect_power(a, e):
+        while not RadicalSimplify.not_perfect_power(a, e):
             # this loop should theoretically end thanks to the check in __init__
             a = randint(self.nrange[0], self.nrange[1])
         b = randint(self.nrange[0], self.nrange[1])
-        while not RadicalSimplify.is_perfect_power(b, e):
+        while not RadicalSimplify.not_perfect_power(b, e):
             b = randint(self.nrange[0], self.nrange[1])
 
         self.num_quest -= 1
