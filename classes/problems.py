@@ -708,6 +708,38 @@ class PolynomialSimplify(ProblemBase):
         return Math(inline=True, data=self.generate_polynomial().get_latex())
 
 
+class PolynomialAdd(PolynomialSimplify):
+    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], *var: str, min_term_count: int = 1):
+        """
+        Generates a problem where two polynomials are added.
+        The polynomials contain only one variable.
+
+        :param num_quest: The number of questions to be generated.
+        :param crange: The range used for the coefficients, (begin, end) inclusive.
+                       The generated coefficient will never be 0.
+        :param drange: The range used for the degree of the polynomial, (begin, end) inclusive.
+                       This range cannot contain a negative number.
+        :param min_term_count: The minimum number of terms to be used for each polynomial.
+                               1 by default.
+        :param var: The possible variables to be used. Only one of them will be used per question.
+                    The default is just x.
+        """
+        super().__init__(num_quest, crange, drange, *var, max_like=1)
+        if drange[1] + 1 < min_term_count:
+            raise ValueError(f"drange not big enough to generate {min_term_count} terms")
+        self.min_term_count = min_term_count
+
+    def get_problem(self) -> Math:
+        polies = []
+        for _ in range(2):
+            degree = randint(max(self.drange[0], self.min_term_count - 1), self.drange[1])
+            term_count = randint(self.min_term_count, degree + 1)
+            polies.append(self.generate_polynomial(degree, term_count))
+        self.num_quest -= 1
+        return Math(inline=True,
+                    data=polies[0].get_latex() + ['+', Command('left(')] + polies[1].get_latex() + [Command('right)')])
+
+
 class PolynomialSubtract(PolynomialSimplify):
     def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], *var: str, min_term_count: int=1):
         """
@@ -796,6 +828,8 @@ class PolynomialDivide(PolynomialSimplify):
         else:
             divisor = self.generate_polynomial(num_terms=1)
         quotient = self.generate_polynomial(randint(0, self.drange[1] - divisor.degree))
+        # generate_polynomial chooses a random variable, make them identical
+        quotient.change_variable(divisor.variable)
         dividend = divisor * quotient
 
         self.num_quest -= 1

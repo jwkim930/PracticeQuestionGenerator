@@ -17,7 +17,7 @@ A rectangle has the width @ cm and the length @ cm. What is its \textbf{\underli
 
 !SquareArea
 A square has the side length @ cm. What is its \textbf{\underline{area}}?
-2
+1
 
 !TriangleArea
 A triangle has the width @ cm and the height @ cm. What is its \textbf{\underline{area}}?

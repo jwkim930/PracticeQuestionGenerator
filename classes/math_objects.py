@@ -514,6 +514,24 @@ class Term(MultiVariableTerm):
         """
         return Term(var, dic["coefficient"], dic["exponent"])
 
+    @staticmethod
+    def singlify(term: MultiVariableTerm) -> "Term":
+        """
+        Returns a copy of the instance as Term. The term must have exactly one variable with integer exponent.
+        """
+        if len(term.variables) != 1:
+            raise ValueError("The term doesn't have one variable, variables: " + str(term.variables))
+        if not term.variables[0][1].is_int():
+            raise ValueError("The term variable is raised to a non-integer exponent, exponent: " + str(term.variables[0][1]))
+        return Term(term.variables[0][0], Number(term.coefficient), int(term.variables[0][1]))
+
+    def __mul__(self, other):
+        if ((isinstance(other, Term) and other.get_variable() == self.get_variable()) or
+            type(other) in (int, float, Decimal, Number)):
+            return Term.singlify(super().__mul__(other))
+        else:
+            return super().__mul__(other)
+
     def get_variable(self) -> str:
         """
         Returns the variable the term uses.
@@ -525,6 +543,15 @@ class Term(MultiVariableTerm):
         Returns the exponent of the variable in the term.
         """
         return Number(self.variables[0][1])
+
+    def change_variable(self, new_var: str) -> Self:
+        """
+        Changes the variable used in this term.
+
+        :returns: The object instance for chained method calls.
+        """
+        self.variables = [(new_var, self.variables[0][1])]
+        return self
 
 
 class SingleVariablePolynomial(MultiVariablePolynomial):
@@ -578,6 +605,35 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
         self.degree = degree if isinstance(degree, int) else 0
         super().__init__(terms, mix, wrap)
 
+    @staticmethod
+    def singlify(poly: MultiVariablePolynomial) -> "SingleVariablePolynomial":
+        """
+        Returns a copy of the instance as SingleVariablePolynomial.
+        The polynomial must have at least one term.
+        The polynomial must use exactly one variable with integer exponents.
+        """
+        if len(poly.terms) == 0:
+            raise ValueError("The polynomial has no terms")
+        terms = []
+        for t in poly.terms:
+            s = Term.singlify(t)
+            if not terms or s.get_variable() == terms[-1].get_variable():
+                terms.append(s)
+            else:
+                raise ValueError(f"Different variables seen: {s.get_variable()} and {terms[-1].get_variable()}")
+        return SingleVariablePolynomial(terms[0].get_variable(), terms, wrap=poly.wrap)
+
+    def __mul__(self, other):
+        if ((isinstance(other, SingleVariablePolynomial) and self.variable == other.variable) or
+            (isinstance(other, Term) and self.variable == other.get_variable()) or
+            type(other) in (int, float, Decimal, Number)
+        ):
+            return SingleVariablePolynomial.singlify(super().__mul__(other))
+        else:
+            return super().__mul__(other)
+
+    __rmul__ = __mul__
+
     def append(self, term: Term):
         """
         Adds the term to the end of the polynomial.
@@ -589,6 +645,17 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
         if term.variables:
             self.degree = max(self.degree, int(term.get_exponent()))
 
+    def change_variable(self, new_var: str) -> Self:
+        """
+        Changes the variable used in this polynomial.
+
+        :returns: The object instance for chained method calls.
+        """
+        self.variable = new_var
+        for i in range(len(self.terms)):
+            old_term = self.terms[i]
+            self.terms[i] = Term(new_var, old_term.coefficient, int(old_term.variables[0][1]))
+        return self
 
 class PolynomialFraction(BaseMathClass):
     def __init__(self, num: SingleVariablePolynomial, denom: SingleVariablePolynomial, sign=1, wrap=False):
