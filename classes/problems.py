@@ -644,7 +644,7 @@ class PolynomialSimplify(ProblemBase):
         """
         return {'coefficient': self.random_coefficient(), 'exponent': exp}
 
-    def generate_polynomial(self, degree: int=None, num_terms: int=None) -> SingleVariablePolynomial:
+    def generate_polynomial(self, degree: int=None, num_terms: int=None, var: str=None) -> SingleVariablePolynomial:
         """
         Randomly generates a polynomial, following the rules outlined in __init()__.
 
@@ -652,6 +652,8 @@ class PolynomialSimplify(ProblemBase):
         :param num_terms: If set, the generated polynomial will have exactly this many terms.
                           To use this, max_like must be 1.
                           If set to None (default), there will be no set number.
+        :param var: Use this variable for the polynomial. Must be a member of self.var.
+                    If set to None (default), a random one will be drawn from self.var.
         """
         if degree is None:
             degree = randint(self.drange[0], self.drange[1])
@@ -661,6 +663,10 @@ class PolynomialSimplify(ProblemBase):
             raise ValueError("The number of terms must be positive")
         if num_terms and self.max_like > 1:
             raise ValueError("num_terms argument cannot be used unless max_like is 1")
+        if var is None:
+            var = choice(self.var)
+        elif var not in self.var:
+            raise ValueError(f"The chosen variable {var} is not in self.var == {self.var}")
 
         # determine the number of like terms for each possible exponent
         term_count = [0 for _ in range(degree + 1)]  # index is exponent
@@ -701,7 +707,7 @@ class PolynomialSimplify(ProblemBase):
 
         # return result as polynomial
         shuffle(poly)
-        return SingleVariablePolynomial(choice(self.var), poly)
+        return SingleVariablePolynomial(choice(var), poly)
 
     def get_problem(self) -> Math:
         self.num_quest -= 1
@@ -731,10 +737,11 @@ class PolynomialAdd(PolynomialSimplify):
 
     def get_problem(self) -> Math:
         polies = []
+        var = choice(self.var)
         for _ in range(2):
             degree = randint(max(self.drange[0], self.min_term_count - 1), self.drange[1])
             term_count = randint(self.min_term_count, degree + 1)
-            polies.append(self.generate_polynomial(degree, term_count))
+            polies.append(self.generate_polynomial(degree, term_count, var))
         self.num_quest -= 1
         return Math(inline=True,
                     data=polies[0].get_latex() + ['+', Command('left(')] + polies[1].get_latex() + [Command('right)')])
@@ -763,10 +770,11 @@ class PolynomialSubtract(PolynomialSimplify):
 
     def get_problem(self) -> Math:
         polies = []
+        var = choice(self.var)
         for _ in range(2):
             degree = randint(max(self.drange[0], self.min_term_count - 1), self.drange[1])
             term_count = randint(self.min_term_count, degree + 1)
-            polies.append(self.generate_polynomial(degree, term_count))
+            polies.append(self.generate_polynomial(degree, term_count, var))
         self.num_quest -= 1
         return Math(inline=True, data=polies[0].get_latex() + ['-', Command('left(')] + polies[1].get_latex() + [Command('right)')])
 
@@ -793,9 +801,10 @@ class PolynomialMultiply(PolynomialSimplify):
         self.max_term_count = max_term_count
 
     def get_problem(self) -> Math:
+        var = choice(self.var)
         left_term_count = randint(1, self.max_term_count)
-        left = self.generate_polynomial(randint(max(self.drange[0], left_term_count-1), self.drange[1]), left_term_count)
-        right = self.generate_polynomial()
+        left = self.generate_polynomial(randint(max(self.drange[0], left_term_count-1), self.drange[1]), left_term_count, var)
+        right = self.generate_polynomial(var=var)
         self.num_quest -= 1
         return Math(inline=True, data=[Command('left(')] + left.get_latex() + [Command('right)'), Command('left(')] + right.get_latex() + [Command('right)')])
 
@@ -823,13 +832,12 @@ class PolynomialDivide(PolynomialSimplify):
         self.no_constant = no_constant
 
     def get_problem(self) -> Math:
+        var = choice(self.var)
         if self.no_constant:
-            divisor = self.generate_polynomial(randint(max(1, self.drange[0]), self.drange[1]), 1)
+            divisor = self.generate_polynomial(randint(max(1, self.drange[0]), self.drange[1]), 1, var)
         else:
-            divisor = self.generate_polynomial(num_terms=1)
-        quotient = self.generate_polynomial(randint(0, self.drange[1] - divisor.degree))
-        # generate_polynomial chooses a random variable, make them identical
-        quotient.change_variable(divisor.variable)
+            divisor = self.generate_polynomial(num_terms=1, var=var)
+        quotient = self.generate_polynomial(randint(0, self.drange[1] - divisor.degree), var=var)
         dividend = divisor * quotient
 
         self.num_quest -= 1
