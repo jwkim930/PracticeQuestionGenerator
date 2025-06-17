@@ -380,9 +380,7 @@ class MultiVariableTerm(BaseMathEntity):
 class MultiVariablePolynomial(BaseMathClass):
     def __init__(self, terms: list[MultiVariableTerm], mix=False, wrap=False):
         """
-        A polynomial with integer coefficients and one variable.
-        The input data can be a list of dictionaries,
-        where each dictionary represents a term in the polynomial.
+        A polynomial with numerical coefficients and multiple variables raised to numerical powers.
 
         :param terms: The terms of the polynomial.
         :param mix: If True, the terms will be shuffled upon initialization.
@@ -484,7 +482,7 @@ class MultiVariablePolynomial(BaseMathClass):
 class Term(MultiVariableTerm):
     def __init__(self, variable: str, coefficient: NumberArgument, exponent: int):
         """
-        A term of a polynomial with a numerical coefficient with one variable.
+        A term of a polynomial with a numerical coefficient with one variable raised to an integer power.
         The stored coefficient will always be non-negative.
 
         :param variable: The variable to be used.
@@ -499,11 +497,11 @@ class Term(MultiVariableTerm):
         Initialize Term from a dictionary.
 
         Each dictionary must be in the following structure:
-        {'coefficient': coefficient value, int,
-         'exponent': exponent of the variable, int}
+        {'coefficient': coefficient value; NumberArgument,
+         'exponent': exponent of the variable; int}
 
         For example, the term -4x^3 is represented by the dictionary:
-        {'coefficient': -4
+        {'coefficient': -4,
          'exponent': 3
         }
 
@@ -517,13 +515,14 @@ class Term(MultiVariableTerm):
     @staticmethod
     def singlify(term: MultiVariableTerm) -> "Term":
         """
-        Returns a copy of the instance as Term. The term must have exactly one variable with integer exponent.
+        Returns a copy of the MultiVariableTerm instance as Term.
+        The term must have exactly one variable with integer exponent.
         """
         if len(term.variables) != 1:
             raise ValueError("The term doesn't have one variable, variables: " + str(term.variables))
         if not term.variables[0][1].is_int():
             raise ValueError("The term variable is raised to a non-integer exponent, exponent: " + str(term.variables[0][1]))
-        return Term(term.variables[0][0], Number(term.coefficient), int(term.variables[0][1]))
+        return Term(term.variables[0][0], Number(term.get_signed_coefficient()), int(term.variables[0][1]))
 
     def __mul__(self, other):
         if ((isinstance(other, Term) and other.get_variable() == self.get_variable()) or
@@ -557,25 +556,25 @@ class Term(MultiVariableTerm):
 class SingleVariablePolynomial(MultiVariablePolynomial):
     def __init__(self, variable: str, data: list[dict[str, NumberArgument] | Term], mix=False, wrap=False):
         """
-        A polynomial with integer coefficients and one variable.
+        A polynomial with numerical coefficients and one variable raised to an integer power.
         The input data can be a list of dictionaries,
         where each dictionary represents a term in the polynomial.
 
         Each dictionary must be in the following structure:
-        {'coefficient': coefficient value, int,
-         'exponent': exponent of the variable, int}
+        {'coefficient': coefficient value; NumberArgument,
+         'exponent': exponent of the variable; int}
 
         For example, the term -4x^3 is represented by the dictionary:
-        {'coefficient': -4
-         'exponent': 3
-        }
+        {'coefficient': -4,
+         'exponent': 3}
 
         For a constant term, the exponent must be 0 and the coefficient must record the value of the constant.
 
         Each term is assumed to be added. That is, the polynomial 4x - 2 is
         uniquely identified by the data:
 
-        [{'coefficient': 4,
+        [
+         {'coefficient': 4,
           'exponent': 1},
          {'coefficient': -2,
           'exponent': 0}
@@ -608,7 +607,7 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
     @staticmethod
     def singlify(poly: MultiVariablePolynomial) -> "SingleVariablePolynomial":
         """
-        Returns a copy of the instance as SingleVariablePolynomial.
+        Returns a copy of the MultiVariablePolynomial instance as SingleVariablePolynomial.
         The polynomial must have at least one term.
         The polynomial must use exactly one variable with integer exponents.
         """
@@ -654,7 +653,10 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
         self.variable = new_var
         for i in range(len(self.terms)):
             old_term = self.terms[i]
-            self.terms[i] = Term(new_var, old_term.coefficient, int(old_term.variables[0][1]))
+            if isinstance(old_term, Term):
+                self.terms[i] = Term(new_var, old_term.get_signed_coefficient(), int(old_term.get_exponent()))
+            else:
+                raise ValueError("SingleVariablePolynomial contained a MultiVariableTerm, not Term")
         return self
 
 class PolynomialFraction(BaseMathClass):

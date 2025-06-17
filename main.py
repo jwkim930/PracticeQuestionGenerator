@@ -9,14 +9,11 @@ import classes.problem_preset as preset
 from classes.environments import Multicols
 
 # Parameters (edit here)
-probs = [problems.PolynomialAdd(3, (-9, 9), (2, 3), 'x', 'y', 'z', 'n', 'k', min_term_count=2),
-         problems.PolynomialSubtract(3, (-9, 9), (2, 3), 'x', 'y', 'z', 'n', 'k', min_term_count=2),
-         problems.PolynomialMultiply(3, (-9, 9), (1, 2), 2, 'x', 'y', 'z', 'n', 'k'),
-         problems.PolynomialDivide(3, (-9, 9), (2, 6), 'x', 'y', 'z', 'n', 'k', no_constant=True)]
-prob_name = "Polynomial Simplification"
-prob_inst = NoEscape("Simplify the following polynomials.")
+probs = [problems.PolynomialDivide(100, (-9, 9), (2, 6), 'x', 'y', 'z')]
+prob_name = "Test"
+prob_inst = NoEscape("Simplify the following expressions.")
 prob_cols = 1
-mix_up = True   # If True, questions are generated in mixed order.
+mix_up = False   # If True, questions are generated in mixed order.
 
 
 # Don't edit below
