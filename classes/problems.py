@@ -2,14 +2,33 @@ from random import randint, choice, shuffle, random, sample, choices
 from decimal import Decimal
 from abc import ABC, abstractmethod
 
-from pylatex import Math, Command, Tabular, MiniPage
-from pylatex.base_classes import LatexObject
+from typing import Callable
+from pylatex import Math, Command, Tabular, MiniPage, Document, VerticalSpace, StandAloneGraphic, TikZ, Axis, Plot
+from pylatex.base_classes import Environment, CommandBase
 from pylatex.utils import NoEscape
 import math
 import numpy as np
 import sympy as sp
 
 from classes.math_objects import *
+
+
+class DocInjector:
+    def __init__(self, body: Callable[[Document], None]):
+        """
+        Allows injecting a function into Document.
+        Avoiding using this unless necessary (e.g. to use an environment).
+
+        :param body: The function to be injected.
+        """
+        self.body = body
+
+    def inject(self, doc: Document):
+        """
+        Injects the function into Document.
+        :param doc: The Document instance.
+        """
+        self.body(doc)
 
 
 class ProblemBase(ABC):
@@ -23,10 +42,12 @@ class ProblemBase(ABC):
         self.vspace = vspace
 
     @abstractmethod
-    def get_problem(self) -> Math | NoEscape:
+    def get_problem(self) -> list[Math | NoEscape | CommandBase | DocInjector]:
         """
         Returns a practice problem.
         Decrements num_quest in the object.
+        Call .inject() for DocInjector with Document passed in,
+        and append other types directly to the Document.
         """
         pass   # child class should implement this
 
@@ -67,10 +88,10 @@ class BinaryOperation(ProblemBase, ABC):
                 ops[other_i] = -ops[other_i]
         return ops[0], ops[1]
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         o1, o2 = self.generate_random_operands()
         self.num_quest -= 1
-        return Math(inline=True, data=o1.get_latex() + [self.operand] + o2.get_latex() + ["="])
+        return [Math(inline=True, data=o1.get_latex() + [self.operand] + o2.get_latex() + ["="])]
 
 
 class IntegerBinaryOperation(BinaryOperation):
@@ -214,14 +235,14 @@ class WordProblem(ProblemBase):
             if not found:
                 raise ValueError("{} not found in the file".format(name))
 
-    def get_problem(self) -> NoEscape:
+    def get_problem(self) -> list[NoEscape]:
         result = self.problem
 
         for prange in self.ranges:
             result = result.replace('@', str(randint(prange[0], prange[1])), 1)
 
         self.num_quest -= 1
-        return NoEscape(result)
+        return [NoEscape(result)]
 
 
 class GraphingProblem(ProblemBase, ABC):
@@ -229,6 +250,8 @@ class GraphingProblem(ProblemBase, ABC):
         """
         Initializes a graphing problem.
         It requires graphing_grid.png in the document_output folder.
+
+        :param num_quest: The number of questions to be generated.
         """
         super().__init__(num_quest, '0cm')
 
@@ -239,10 +262,14 @@ class GraphingProblem(ProblemBase, ABC):
         """
         pass   # child class should implement this
 
-    def get_problem(self) -> NoEscape:
-        result = NoEscape('$f(x)=' + self.get_random_function() + '$\n\n' \
-               + r'\vspace{2em}' + '\n\n' \
-               + r'\includegraphics[width=0.3\linewidth]{graphing_grid.png}')
+    def get_problem(self) -> list[Math | NoEscape | CommandBase]:
+        result = [
+            Math(data=["f(x)=", self.get_random_function()], inline=True),
+            NoEscape("\n"),
+            VerticalSpace("2em"),
+            NoEscape("\n"),
+            StandAloneGraphic("graphing_grid.png", "width=0.3\\linewidth")
+        ]
 
         self.num_quest -= 1
         return result
@@ -366,7 +393,7 @@ class SquareRootProblem(ProblemBase):
             if (not frac and len(self.operand_candidates) < num_quest) or (frac and len(self.operand_candidates) < 2 * num_quest):
                 raise ValueError(f"Operand range is not big enough to generate {num_quest} questions")
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         if not self.frac:
             chosen = choice(self.operand_candidates)
             if self.no_duplicate:
@@ -382,7 +409,7 @@ class SquareRootProblem(ProblemBase):
             result = Math(inline=True, data=[Command('sqrt', Fraction(num, denom).get_latex())])
 
         self.num_quest -= 1
-        return result
+        return [result]
 
 
 class SquareRootDecimalProblem(SquareRootProblem):
@@ -487,7 +514,7 @@ class LinearRelationProblem(ProblemBase):
             self.x_values.append(x)
             x += x_range[2]
 
-    def get_problem(self) -> NoEscape:
+    def get_problem(self) -> list[DocInjector]:
         def decimal_randrange(start, end, step) -> Decimal:
             count = int((end - start) // step)   # 1 less than the total number of candidates
             return start + randint(0, count) * step
@@ -498,19 +525,20 @@ class LinearRelationProblem(ProblemBase):
             h = decimal_randrange(self.h_range[0], self.h_range[1], self.h_range[2])
         k = decimal_randrange(self.k_range[0], self.k_range[1], self.k_range[2])
 
-        # assemble the table of values
-        xy_table = Tabular("c|c")
-        xy_table.add_row(Math(inline=True, data=['x']), Math(inline=True, data=['y']))
-        xy_table.add_hline()
-        for x in self.x_values:
-            xy_table.add_row(Math(inline=True, data=[str(x)]), Math(inline=True, data=[str(h*x + k)]))
-
-        # put the figures into minipages for alignment
-        xy_page = MiniPage(width='3cm', data=xy_table)
-        graph_page = MiniPage(width=r'0.3\textwidth', data=NoEscape(r'\includegraphics[width=\linewidth]{graphing_grid.png}'))
+        def body(doc: Document):
+            # put the figures into minipages for alignment
+            with doc.create(MiniPage(width='3cm')):
+                # assemble the table of values
+                with doc.create(Tabular("c|c")) as xy_table:
+                    xy_table.add_row(Math(inline=True, data=['x']), Math(inline=True, data=['y']))
+                    xy_table.add_hline()
+                    for x in self.x_values:
+                        xy_table.add_row(Math(inline=True, data=[str(x)]), Math(inline=True, data=[str(h * x + k)]))
+            with doc.create(MiniPage(width=r'0.3\textwidth')):
+                doc.append(StandAloneGraphic("graphing_grid.png", "width=\\linewidth"))
 
         self.num_quest -= 1
-        return NoEscape(xy_page.dumps() + graph_page.dumps())
+        return [DocInjector(body)]
 
 
 class EquationSingleOperation(ProblemBase):
@@ -548,7 +576,7 @@ class EquationSingleOperation(ProblemBase):
         self.nrange = nrange
         self.operations = operations if len(operations) > 0 else (('add', 'sub', 'mul', 'div') if not zero_only else ('add', 'sub', 'mul'))
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         operation = choice(self.operations)
         constant_side = [randint(self.nrange[0], self.nrange[1])]
         operand = Number(randint(self.nrange[0], self.nrange[1]))
@@ -568,9 +596,9 @@ class EquationSingleOperation(ProblemBase):
 
         self.num_quest -= 1
         if randint(0, 1) == 0:
-            return Math(inline=True, data=variable_side + ['='] + constant_side)
+            return [Math(inline=True, data=variable_side + ['='] + constant_side)]
         else:
-            return Math(inline=True, data=constant_side + ['='] + variable_side)
+            return [Math(inline=True, data=constant_side + ['='] + variable_side)]
 
 
 class PolynomialSimplify(ProblemBase):
@@ -709,9 +737,9 @@ class PolynomialSimplify(ProblemBase):
         shuffle(poly)
         return SingleVariablePolynomial(choice(var), poly)
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         self.num_quest -= 1
-        return Math(inline=True, data=self.generate_polynomial().get_latex())
+        return [Math(inline=True, data=self.generate_polynomial().get_latex())]
 
 
 class PolynomialAdd(PolynomialSimplify):
@@ -735,7 +763,7 @@ class PolynomialAdd(PolynomialSimplify):
             raise ValueError(f"drange not big enough to generate {min_term_count} terms")
         self.min_term_count = min_term_count
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         polies = []
         var = choice(self.var)
         for _ in range(2):
@@ -743,8 +771,8 @@ class PolynomialAdd(PolynomialSimplify):
             term_count = randint(self.min_term_count, degree + 1)
             polies.append(self.generate_polynomial(degree, term_count, var))
         self.num_quest -= 1
-        return Math(inline=True,
-                    data=polies[0].get_latex() + ['+', Command('left(')] + polies[1].get_latex() + [Command('right)')])
+        return [Math(inline=True,
+                     data=polies[0].get_latex() + ['+', Command('left(')] + polies[1].get_latex() + [Command('right)')])]
 
 
 class PolynomialSubtract(PolynomialSimplify):
@@ -768,7 +796,7 @@ class PolynomialSubtract(PolynomialSimplify):
             raise ValueError(f"drange not big enough to generate {min_term_count} terms")
         self.min_term_count = min_term_count
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         polies = []
         var = choice(self.var)
         for _ in range(2):
@@ -776,7 +804,7 @@ class PolynomialSubtract(PolynomialSimplify):
             term_count = randint(self.min_term_count, degree + 1)
             polies.append(self.generate_polynomial(degree, term_count, var))
         self.num_quest -= 1
-        return Math(inline=True, data=polies[0].get_latex() + ['-', Command('left(')] + polies[1].get_latex() + [Command('right)')])
+        return [Math(inline=True, data=polies[0].get_latex() + ['-', Command('left(')] + polies[1].get_latex() + [Command('right)')])]
 
 
 class PolynomialMultiply(PolynomialSimplify):
@@ -800,13 +828,13 @@ class PolynomialMultiply(PolynomialSimplify):
         super().__init__(num_quest, crange, drange, *var, max_like=1)
         self.max_term_count = max_term_count
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         var = choice(self.var)
         left_term_count = randint(1, self.max_term_count)
         left = self.generate_polynomial(randint(max(self.drange[0], left_term_count-1), self.drange[1]), left_term_count, var)
         right = self.generate_polynomial(var=var)
         self.num_quest -= 1
-        return Math(inline=True, data=[Command('left(')] + left.get_latex() + [Command('right)'), Command('left(')] + right.get_latex() + [Command('right)')])
+        return [Math(inline=True, data=[Command('left(')] + left.get_latex() + [Command('right)'), Command('left(')] + right.get_latex() + [Command('right)')])]
 
 
 class PolynomialDivide(PolynomialSimplify):
@@ -831,7 +859,7 @@ class PolynomialDivide(PolynomialSimplify):
             raise ValueError("no_constant used yet drange doesn't contain 1 or higher")
         self.no_constant = no_constant
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         var = choice(self.var)
         if self.no_constant:
             divisor = self.generate_polynomial(randint(max(1, self.drange[0]), self.drange[1]), 1, var)
@@ -841,7 +869,7 @@ class PolynomialDivide(PolynomialSimplify):
         dividend = divisor * quotient
 
         self.num_quest -= 1
-        return Math(inline=True, data=PolynomialFraction(dividend, divisor).get_latex())
+        return [Math(inline=True, data=PolynomialFraction(dividend, divisor).get_latex())]
 
 
 class EquationMultiOperation(ProblemBase):
@@ -948,7 +976,7 @@ class EquationMultiOperation(ProblemBase):
         """
         return self.draws(1, *blacklist)[0]
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         if self.inequality:
             middle = choice(['>', '<', Command('geq'), Command('leq')])
         else:
@@ -1313,7 +1341,7 @@ class EquationMultiOperation(ProblemBase):
             result = rhs.get_latex() + [middle] + lhs.get_latex() + [NoEscape("\\quad")] + disclaimer
 
         self.num_quest -= 1
-        return Math(inline=True, data=result)
+        return [Math(inline=True, data=result)]
 
 
 class FactorPolynomial(EquationMultiOperation):
@@ -1578,7 +1606,7 @@ class FactorPolynomial(EquationMultiOperation):
         prob_type = choice(self.types)
         poly = self.get_random_polynomial(prob_type)
         self.num_quest -= 1
-        return Math(inline=True, data=[poly.dumps()])
+        return [Math(inline=True, data=[poly.dumps()])]
 
 
 class QuadraticEquation(EquationMultiOperation):
@@ -1619,7 +1647,7 @@ class QuadraticEquation(EquationMultiOperation):
         else:
             self.types = types
 
-    def get_problem(self) -> Math:
+    def get_problem(self):
         if self.inequality:
             middle = choice(['>', '<', Command('geq'), Command('leq')])
         else:
@@ -1674,9 +1702,9 @@ class QuadraticEquation(EquationMultiOperation):
 
         self.num_quest -= 1
         if random() < 0.5:
-            return Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())
+            return [Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())]
         else:
-            return Math(inline=True, data=rhs.get_latex() + [middle] + lhs.get_latex())
+            return [Math(inline=True, data=rhs.get_latex() + [middle] + lhs.get_latex())]
 
 
 class LinearSystem(ProblemBase):
@@ -1819,7 +1847,7 @@ class LinearSystem(ProblemBase):
                 print("WARNING: failed attempt at generating a system with infinitely many solutions; reattempting with a different LHS")
                 return self.generate_standard_system()
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         problem = choice(self.types)
         variables = sample(self.var, self.size)
         result = [r"\begin{cases}"]
@@ -1841,7 +1869,7 @@ class LinearSystem(ProblemBase):
         result = [NoEscape(s) for s in result]
 
         self.num_quest -= 1
-        return Math(inline=True, data=result)
+        return [Math(inline=True, data=result)]
 
 
 class RadicalSimplify(ProblemBase):
@@ -1932,5 +1960,50 @@ class QuadraticGraphingFactorable(GraphingProblem, FactorPolynomial):
     def get_random_function(self) -> NoEscape:
         return self.get_random_polynomial(choice(self.types)).dumps()
 
-    def get_problem(self) -> NoEscape:
-        return GraphingProblem.get_problem(self)
+
+class IdentifyGraph(ProblemBase, ABC):
+    def __init__(self, num_quest: int):
+        """
+        Initializes a problem where the equation of the graph must be identified.
+
+        :param num_quest: The number of questions to be generated.
+        """
+        super().__init__(num_quest, "0cm")
+
+    @abstractmethod
+    def get_random_function(self) -> tuple[NoEscape, tuple[int, int], tuple[int, int]]:
+        """
+        Returns a function with randomized parameters,
+        along with the axes limits to be used for graphing.
+
+        :return: function expression, xlim, ylim
+        """
+        pass   # child class should implement this
+
+    def get_problem(self) -> list[DocInjector]:
+        def body(doc: Document):
+            func, xlim, ylim = self.get_random_function()
+            xtick_distance = max(1, (xlim[1] - xlim[0]) // 3)
+            ytick_distance = max(1, (ylim[1] - ylim[0]) // 3)
+            with doc.create(TikZ()):
+                axis_options = rf"""
+                height=6cm, width=6cm,
+                grid=both,
+                grid style={{line width=.1pt, draw=gray!10}},
+                major grid style={{line width=.2pt, draw=gray!50}},
+                axis lines=center,
+                xmin={xlim[0]}, xmax={xlim[1]}, ymin={ylim[0]}, ymax={ylim[1]},
+                xtick distance={xtick_distance}, minor x tick num={xtick_distance - 1},
+                ytick distance={ytick_distance}, minor y tick num={ytick_distance - 1},
+                xlabel=\(x\), ylabel=\(y\)
+                """
+                with doc.create(Axis(options=NoEscape(axis_options))) as plot:
+                    plot_options = rf"""
+                    samples=100,
+                    line width=1pt,
+                    mark=none
+                    """
+                    plot.append(Plot(func=func, options=NoEscape(plot_options)))
+
+        self.num_quest -= 1
+        return [DocInjector(body)]

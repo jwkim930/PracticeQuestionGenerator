@@ -7,16 +7,22 @@ from random import randint
 import classes.problems as problems
 import classes.problem_preset as preset
 from classes.environments import Multicols
+from classes.problems import IdentifyGraph
+
 
 # Parameters (edit here)
-probs = [problems.PolynomialAdd(3, (-9, 9), (2, 3), 'x', 'y', 'z', 'n', 'k', min_term_count=2),
-         problems.PolynomialSubtract(3, (-9, 9), (2, 3), 'x', 'y', 'z', 'n', 'k', min_term_count=2),
-         problems.PolynomialMultiply(3, (-9, 9), (1, 2), 2, 'x', 'y', 'z', 'n', 'k'),
-         problems.PolynomialDivide(3, (-9, 9), (2, 6), 'x', 'y', 'z', 'n', 'k', no_constant=True)]
-prob_name = "Polynomial Simplification"
-prob_inst = NoEscape("Simplify the following polynomials.")
+class TestIdentifyGraph(IdentifyGraph):
+    """
+    For testing
+    """
+    def get_random_function(self):
+        return NoEscape("x*x + 2"), (-4, 4), (0, 4)
+
+probs = [TestIdentifyGraph(1)]
+prob_name = "Test"
+prob_inst = NoEscape("Identify the equation of the graph shown.")
 prob_cols = 1
-mix_up = True   # If True, questions are generated in mixed order.
+mix_up = False   # If True, questions are generated in mixed order.
 
 
 # Don't edit below
@@ -37,7 +43,11 @@ def print_problems():
         prob = probs[probi]
         with doc.create(Subsection("Q" + str(q), False)):
             with doc.create(MiniPage()):
-                doc.append(prob.get_problem())
+                for elem in prob.get_problem():
+                    if isinstance(elem, problems.DocInjector):
+                        elem.inject(doc)
+                    else:
+                        doc.append(elem)
                 doc.append(VerticalSpace(prob.vspace))
         if prob.num_quest == 0:
             probs.pop(probi)
