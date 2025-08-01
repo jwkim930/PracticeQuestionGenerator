@@ -2000,6 +2000,7 @@ class IdentifyGraph(ProblemBase, ABC):
                 with doc.create(Axis(options=NoEscape(axis_options))) as plot:
                     plot_options = rf"""
                     samples=100,
+                    domain={xlim[0]}:{xlim[1]},
                     line width=1pt,
                     mark=none
                     """
@@ -2007,3 +2008,56 @@ class IdentifyGraph(ProblemBase, ABC):
 
         self.num_quest -= 1
         return [DocInjector(body)]
+
+
+class IdentifyQuadraticGraph(IdentifyGraph):
+    def __init__(self, num_quest: int, arange: tuple[int, int], vrange: tuple[int, int], show_intercepts=False):
+        """
+        Initializes problems where a graph of a quadratic relation is drawn
+        and the student needs to find an equation for it.
+        The graph always shows the vertex.
+
+        :param num_quest: The number of questions to be generated.
+        :param arange: The range used for the coefficient of the x^2 term, (begin, end) inclusive.
+                       There's a 50:50 chance that the reciprocal of the generated number is used instead.
+                       a will never be 0 even if arange includes it.
+        :param vrange: The range used for the x and y-coordinate of the vertex, (begin, end) inclusive.
+        :param show_intercepts: If True, the x-intercept(s) are guaranteed to be shown (if they exist).
+        """
+        super().__init__(num_quest)
+        if 0 in arange:
+            raise ValueError("arange bounds cannot be 0")
+        self.arange = arange
+        self.vrange = vrange
+        self.show_intercepts = show_intercepts
+
+    def get_random_function(self):
+        a = 0
+        while a == 0:
+            a = randint(self.arange[0], self.arange[1])
+        if a != 0 and random() < 0.5:
+            a = 1 / a
+        vx = randint(self.vrange[0], self.vrange[1])
+        vy = randint(self.vrange[0], self.vrange[1])
+
+        # determine view region
+        r = int(max(abs(a), abs(1 / a)) * 3)
+        jitter = max(r // 6, 1)
+        xmin = vx - r + randint(1, jitter)
+        xmax = vx + r + randint(1, jitter)
+        ymin = vy - r + randint(1, jitter)
+        ymax = vy + r + randint(1, jitter)
+        if self.show_intercepts and a * vy < 0:
+            # there will be two x-intercepts, make sure they show up
+            b = -2 * a * vx
+            c = a * vx**2 + vy
+            x1 = math.floor((-b + math.sqrt(b**2 - 4*a*c)) / (2*a))   # rounded down to nearest integer
+            x2 = math.ceil((-b - math.sqrt(b**2 - 4*a*c)) / (2*a))   # rounded up to nearest integer
+            xmin = min(xmin, x1-1, x2-1)
+            xmax = max(xmax, x1+1, x2+1)
+            if a > 0:
+                ymax = max(ymax, 1)
+            else:
+                ymin = min(ymin, -1)
+
+        return NoEscape(f"({a}) * (x - ({vx})) * (x - ({vx})) + ({vy})"), (xmin, xmax), (ymin, ymax)
