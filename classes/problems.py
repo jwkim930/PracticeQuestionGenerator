@@ -2061,3 +2061,75 @@ class IdentifyQuadraticGraph(IdentifyGraph):
                 ymin = min(ymin, -1)
 
         return NoEscape(f"({a}) * (x - ({vx})) * (x - ({vx})) + ({vy})"), (xmin, xmax), (ymin, ymax)
+
+
+class ExponentRulePractice(ProblemBase):
+    def __init__(self, num_quest: int, brange: tuple[int, int], erange: tuple[int, int], *types: str, sqrt_only=False):
+        """
+        Initializes problems where an expression needs to be simplified using exponent rules.
+        The bases are drawn randomly from brange and the exponents are drawn randomly from erange.
+        The drawn base will never be 0 or +-1.
+
+        Here are the possible problem types:
+        - simple_mult: b^(e1) * b^(e2)
+        - simple_div: \frac{b^(e1)}{b^(e2)}, e1 >= e2
+        - simple_exp: (b^(e1))^(e2)
+
+        :param num_quest: The number of questions to be generated.
+        :param brange: The range used for bases, (begin, end) inclusive. Must contain something other than 0 and +-1.
+        :param erange: The range used for exponents (including radical index), (begin, end) inclusive.
+        :param types: The problem types to be chosen from. If omitted, all types will be allowed.
+        :param sqrt_only: If True, radical expressions will only use square roots regardless of erange.
+        """
+        if (brange[0] > brange[1]) or not set(range(brange[0], brange[1] + 1)) - {-1, 0, 1}:
+            raise ValueError("brange must contain something other than 0 and 1. brange given: " + str(brange))
+        if erange[0] > erange[1]:
+            raise ValueError("erange must contain a number. erange given: " + str(erange))
+        possible_types = (
+            "simple_mult",
+            "simple_div",
+            "simple_exp"
+        )
+        for t in types:
+            if t not in types:
+                raise ValueError(f"the problem type {t} is not valid")
+        if not types:
+            types = possible_types
+
+        super().__init__(num_quest, "0cm")
+        self.brange = brange
+        self.erange = erange
+        self.types = types
+        self.sqrt_only = sqrt_only
+
+
+    def get_problem(self) -> list[Math]:
+        def draw_b(wrap) -> Number:
+            b = randint(self.brange[0], self.brange[1])
+            while b in [0, 1, -1]:
+                b = randint(self.brange[0], self.brange[1])
+            return Number(b, wrap=wrap)
+
+        prob_type = choice(self.types)
+        result = []
+
+        match prob_type:
+            case "simple_mult":
+                b = draw_b(True)
+                e1 = randint(self.erange[0], self.erange[1])
+                e2 = randint(self.erange[0], self.erange[1])
+                result.extend([NoEscape(f"{b.dumps()}^{{{e1}}}"), Command("times"), NoEscape(f"{b.dumps()}^{{{e2}}}")])
+            case "simple_div":
+                b = draw_b(True)
+                e1 = randint(self.erange[0], self.erange[1])
+                e2 = randint(self.erange[0], e1)   # make sure e1 >= e2
+                result.extend(UnsafeFraction(f"{b.dumps()}^{{{e1}}}", f"{b.dumps()}^{{{e2}}}").get_latex())
+            case "simple_exp":
+                b = draw_b(True)
+                e1 = randint(self.erange[0], self.erange[1])
+                e2 = randint(self.erange[0], self.erange[1])
+                result.extend([Command("left("), NoEscape(f"{b.dumps()}^{{{e1}}}"), Command("right)"), NoEscape(f"^{{{e2}}}")])
+        result.append(NoEscape("="))
+
+        self.num_quest -= 1
+        return [Math(data=result, inline=True)]

@@ -10,7 +10,7 @@ from pylatex.base_classes import LatexObject
 
 class BaseMathClass(ABC):
     @abstractmethod
-    def get_latex(self) -> list[LatexObject, NoEscape, int]:
+    def get_latex(self) -> list[LatexObject | NoEscape]:
         """
         Returns the LaTeX representation of the object in a list.
         """
@@ -86,7 +86,7 @@ class Fraction(BaseMathEntity):
         :param num: Numerator of the fraction.
         :param denom: Denominator of the fraction. Cannot be zero.
         :param sign: The sign of the fraction. 1 if positive, -1 if negative.
-        :param big: If True, get_command() will return a fraction in display mode (bigger text).
+        :param big: If True, get_latex() will return a fraction in display mode (bigger text).
         :param wrap: If True, the fraction will be surrounded by parentheses when it's negative.
                      Has no effect if the sign is positive.
         """
@@ -168,7 +168,10 @@ class Number(BaseMathEntity):
             super().__init__(num.sign, num.wrap or wrap)
             self.mag: Decimal = num.mag
         else:
-            num = Decimal(num)
+            try:
+                num = Decimal(num)
+            except Exception:
+                raise TypeError(f"{num} could not be converted to Decimal")
             sign = 1
             if num < 0:
                 sign = -1
@@ -203,6 +206,9 @@ class Number(BaseMathEntity):
 
     def __str__(self):
         return str(self.get_signed())
+
+    def __repr__(self):
+        return f"Number('{self.get_signed()}', wrap={self.wrap})"
 
     def __eq__(self, other):
         if not isinstance(other, Number):
@@ -691,6 +697,37 @@ class PolynomialFraction(BaseMathClass):
             result.append(Command('right)'))
         return result
 
+
+class UnsafeFraction(BaseMathClass):
+    def __init__(self,
+                 num: str | NumberArgument | BaseMathClass,
+                 denom: str | NumberArgument | BaseMathClass,
+                 big=False):
+        """
+        A fraction with arbitrary numerator and denominator.
+        If str is given as an argument, it will be converted to NoEscape.
+
+        :param num: The numerator of the fraction.
+        :param denom: The denominator of the fraction.
+        :param big: If True, get_latex() will return a fraction in display mode (bigger text).
+        """
+        def convert(o, name: str) -> BaseMathClass:
+            if isinstance(o, str):
+                return TextWrapper([o])
+            elif isinstance(o, BaseMathClass):
+                return o
+            else:
+                try:
+                    return Number(o)
+                except TypeError:
+                    raise ValueError(f"argument {name} with value {o} cannot be converted to BaseMathClass")
+
+        self.num = convert(num, "num")
+        self.denom = convert(denom, "denom")
+        self.big = big
+
+    def get_latex(self) -> list[Command]:
+        return [Command("dfrac" if self.big else "frac", [self.num.dumps(), self.denom.dumps()])]
 
 class UnsafePolynomial(BaseMathClass):
     def __init__(self, *terms: str | BaseMathClass, mix=False):
