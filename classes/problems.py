@@ -2065,37 +2065,54 @@ class IdentifyQuadraticGraph(IdentifyGraph):
 
 class ExponentRulePractice(ProblemBase):
     def __init__(self, num_quest: int, brange: tuple[int, int], erange: tuple[int, int], *types: str, sqrt_only=False):
-        """
+        r"""
         Initializes problems where an expression needs to be simplified using exponent rules.
         The bases are drawn randomly from brange and the exponents are drawn randomly from erange.
         The drawn base will never be 0 or +-1.
+        The drawn exponent will never be 1.
 
         Here are the possible problem types:
         - simple_mult: b^(e1) * b^(e2)
         - simple_div: \frac{b^(e1)}{b^(e2)}, e1 >= e2
         - simple_exp: (b^(e1))^(e2)
+        - simple_dist: ((b1)^(e1) * (b2)^(e2))^(e3)
+        - simple_root: \sqrt[e2]{b^(e1*e2)}, e2 > 1 and e2 != 0
+            - If erange doesn't include anything greater than 1, e2 will always be 2 even if it's outside the range.
+            - This problem type requires erange to also contain something other than 0.
+        - multdiv: product/quotient of b^(en), n = 3-5
 
         :param num_quest: The number of questions to be generated.
         :param brange: The range used for bases, (begin, end) inclusive. Must contain something other than 0 and +-1.
         :param erange: The range used for exponents (including radical index), (begin, end) inclusive.
+                       Must contain something other than 1.
         :param types: The problem types to be chosen from. If omitted, all types will be allowed.
         :param sqrt_only: If True, radical expressions will only use square roots regardless of erange.
         """
         if (brange[0] > brange[1]) or not set(range(brange[0], brange[1] + 1)) - {-1, 0, 1}:
-            raise ValueError("brange must contain something other than 0 and 1. brange given: " + str(brange))
-        if erange[0] > erange[1]:
-            raise ValueError("erange must contain a number. erange given: " + str(erange))
+            raise ValueError("brange must contain a number other than 0 and 1. brange given: " + str(brange))
+        if (erange[0] > erange[1]) or (erange[0] == 1 and erange[1] == 1):
+            raise ValueError("erange must contain a number other than 1. erange given: " + str(erange))
         possible_types = (
             "simple_mult",
             "simple_div",
-            "simple_exp"
+            "simple_exp",
+            "simple_dist",
+            "simple_root",
+            "multdiv"
         )
+        root_types = {
+            "simple_root"
+        }
         for t in types:
-            if t not in types:
+            if t not in possible_types:
                 raise ValueError(f"the problem type {t} is not valid")
         if not types:
             types = possible_types
-
+        if not sqrt_only and not set(range(erange[0], erange[1] + 1)) - {0, 1}:
+            # remove root types
+            types = tuple(set(types) - root_types)
+        if not types:
+            raise ValueError("Only root problems chosen but erange contains nothing but 0 and/or 1")
         super().__init__(num_quest, "0cm")
         self.brange = brange
         self.erange = erange
@@ -2109,6 +2126,17 @@ class ExponentRulePractice(ProblemBase):
             while b in [0, 1, -1]:
                 b = randint(self.brange[0], self.brange[1])
             return Number(b, wrap=wrap)
+        def draw_e(lower_bound=None, upper_bound=None, no_zero=False) -> int:
+            if lower_bound is None:
+                lower_bound = self.erange[0]
+            if upper_bound is None:
+                upper_bound = self.erange[1]
+            if lower_bound < self.erange[0] or upper_bound > self.erange[1]:
+                raise ValueError(f"draw_e bounds set outside erange: lower_bound={lower_bound}, upper_bound={upper_bound}, erange={self.erange}")
+            e = randint(lower_bound, upper_bound)
+            while e == 1 or (no_zero and e == 0):
+                e = randint(lower_bound, upper_bound)
+            return e
 
         prob_type = choice(self.types)
         result = []
@@ -2116,19 +2144,53 @@ class ExponentRulePractice(ProblemBase):
         match prob_type:
             case "simple_mult":
                 b = draw_b(True)
-                e1 = randint(self.erange[0], self.erange[1])
-                e2 = randint(self.erange[0], self.erange[1])
+                e1 = draw_e
+                e2 = draw_e
                 result.extend([NoEscape(f"{b.dumps()}^{{{e1}}}"), Command("times"), NoEscape(f"{b.dumps()}^{{{e2}}}")])
             case "simple_div":
                 b = draw_b(True)
-                e1 = randint(self.erange[0], self.erange[1])
-                e2 = randint(self.erange[0], e1)   # make sure e1 >= e2
+                e1 = draw_e()
+                e2 = draw_e(upper_bound=e1)   # make sure e1 >= e2
                 result.extend(UnsafeFraction(f"{b.dumps()}^{{{e1}}}", f"{b.dumps()}^{{{e2}}}").get_latex())
             case "simple_exp":
                 b = draw_b(True)
-                e1 = randint(self.erange[0], self.erange[1])
-                e2 = randint(self.erange[0], self.erange[1])
+                e1 = draw_e()
+                e2 = draw_e()
                 result.extend([Command("left("), NoEscape(f"{b.dumps()}^{{{e1}}}"), Command("right)"), NoEscape(f"^{{{e2}}}")])
+            case "simple_dist":
+                b1 = draw_b(True)
+                b2 = draw_b(True)
+                e1 = draw_e()
+                e2 = draw_e()
+                e3 = draw_e()
+                result.extend([Command("left("), *b1.get_latex(), NoEscape(f"^{{{e1}}}"),
+                               Command("times"), *b2.get_latex(), NoEscape(f"^{{{e2}}}"),
+                               Command("right)"), NoEscape(f"^{{{e3}}}")])
+            case "simple_root":
+                b = draw_b(True)
+                e1 = draw_e()
+                e2 = 2 if (self.sqrt_only or self.erange[1] < 2) else draw_e(lower_bound=max(2, self.erange[0]), no_zero=True)
+                result.append(Command("sqrt", NoEscape(f"{b.dumps()}^{{{e1 * e2}}}"), e2 if e2 != 2 else None))
+            case "multdiv":
+                b = draw_b(True)
+                enum = [draw_e()]   # put at least one power in numerator
+                edenom = []
+                for _ in range(randint(2, 4)):
+                    if random() < 0.5:
+                        enum.append(draw_e())
+                    else:
+                        edenom.append(draw_e())
+                num = NoEscape(f"{b.dumps()}^{{{enum[0]}}}")
+                for e in enum[1:]:
+                    num += NoEscape(f" \\times {b.dumps()}^{{{e}}}")
+                if not edenom:
+                    result.append(num)
+                else:
+                    denom = NoEscape(f"{b.dumps()}^{{{edenom[0]}}}")
+                    for e in edenom[1:]:
+                        denom += NoEscape(f" \\times {b.dumps()}^{{{e}}}")
+                    result.extend(UnsafeFraction(num, denom).get_latex())
+
         result.append(NoEscape("="))
 
         self.num_quest -= 1

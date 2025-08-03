@@ -11,17 +11,13 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.ExponentRulePractice(10, (-9, 9), (2, 8))],
-    [problems.FractionAddition(10, (1, 9), (2, 9))],
-    [problems.IdentifyQuadraticGraph(5, (-2, 2), (-5, 5))]
+    [problems.ExponentRulePractice(100, (-9, 9), (-2, 1), "simple_root", sqrt_only=False)]
 ]
-prob_names = ["Test1", "Test2", "Test3"]
-prob_insts = [NoEscape("Simplify the following expressions."),
-              NoEscape("Evaluate the following expressions."),
-              NoEscape("Write an equation of the graph.")]
-prob_cols = [2, 2, 1]
+prob_names = ["Test"]
+prob_insts = [NoEscape("Simplify the following expressions.")]
+prob_cols = [2]
 # If mix_up is True, questions are generated in mixed order for that section.
-mix_up = [False, False, False]
+mix_up = [False]
 title = "Test"   # ignored if there's only one section
 
 # Don't edit below
