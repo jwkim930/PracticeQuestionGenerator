@@ -2080,6 +2080,7 @@ class ExponentRulePractice(ProblemBase):
             - If erange doesn't include anything greater than 1, e2 will always be 2 even if it's outside the range.
             - This problem type requires erange to also contain something other than 0.
         - multdiv: product/quotient of b^(en), n = 3-5
+        - twobase_multdiv: product/quotient of (b1)^(en) and (b2)^(en), n = 4-6
 
         :param num_quest: The number of questions to be generated.
         :param brange: The range used for bases, (begin, end) inclusive. Must contain something other than 0 and +-1.
@@ -2098,7 +2099,8 @@ class ExponentRulePractice(ProblemBase):
             "simple_exp",
             "simple_dist",
             "simple_root",
-            "multdiv"
+            "multdiv",
+            "twobase_multdiv"
         )
         root_types = {
             "simple_root"
@@ -2189,6 +2191,41 @@ class ExponentRulePractice(ProblemBase):
                     denom = NoEscape(f"{b.dumps()}^{{{edenom[0]}}}")
                     for e in edenom[1:]:
                         denom += NoEscape(f" \\times {b.dumps()}^{{{e}}}")
+                    result.extend(UnsafeFraction(num, denom).get_latex())
+            case "twobase_multdiv":
+                b1 = draw_b(True)
+                b2 = draw_b(True)
+                while self.brange[0] < self.brange[1] and b1 == b2:
+                    b2 = draw_b(True)
+                # choose exponents for each base
+                b1_e = [draw_e()]
+                b2_e = [draw_e()]
+                for _ in range(randint(2, 4)):
+                    if random() < 0.5:
+                        b1_e.append(draw_e())
+                    else:
+                        b2_e.append(draw_e())
+                # randomly assign exponents to numerator and denominator
+                indices = [(i, b1_e, b1) for i in range(len(b1_e))] + [(i, b2_e, b2) for i in range(len(b2_e))]
+                inum = []
+                idenom = []
+                while indices:
+                    j = randint(0, len(indices) - 1)
+                    if not inum or random() < 0.5:   # make sure numerator has at least one power
+                        inum.append(indices.pop(j))
+                    else:
+                        idenom.append(indices.pop(j))
+                # assemble the numerator text
+                num = NoEscape(f"{inum[0][2].dumps()}^{{{inum[0][1][inum[0][0]]}}}")
+                for i, be, b in inum[1:]:
+                    num += NoEscape(f" \\times {b.dumps()}^{{{be[i]}}}")
+                # assemble the denominator text
+                if not idenom:
+                    result.append(num)
+                else:
+                    denom = NoEscape(f"{idenom[0][2].dumps()}^{{{idenom[0][1][idenom[0][0]]}}}")
+                    for i, be, b in idenom[1:]:
+                        denom += NoEscape(f" \\times {b.dumps()}^{{{be[i]}}}")
                     result.extend(UnsafeFraction(num, denom).get_latex())
 
         result.append(NoEscape("="))

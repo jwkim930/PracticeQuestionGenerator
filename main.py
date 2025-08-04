@@ -11,7 +11,7 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.ExponentRulePractice(100, (-9, 9), (-2, 1), "simple_root", sqrt_only=False)]
+    [problems.ExponentRulePractice(100, (-9, 9), (2, 8), "twobase_multdiv")]
 ]
 prob_names = ["Test"]
 prob_insts = [NoEscape("Simplify the following expressions.")]
