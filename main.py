@@ -11,14 +11,31 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.ExponentRulePractice(100, (-9, 9), (2, 8), "twobase_multdiv")]
+    [problems.ExponentRulePractice(10, (-9, 9), (2, 8))],
+    [
+        problems.PolynomialAdd(3, (-9, 9), (1, 3), *preset.variables, min_term_count=2),
+        problems.PolynomialSubtract(3, (-9, 9), (1, 3), *preset.variables, min_term_count=2),
+        problems.PolynomialMultiply(3, (-9, 9), (1, 1), *preset.variables, min_term_count = 2, max_term_count=2),
+        problems.PolynomialDivide(3, (-9, 9), (1, 3), *preset.variables, no_constant=True)
+    ],
+    [
+        preset.MultiOperationAdvancedMix(2, (-9, 9), preset.variables),
+        preset.MultiOperationChallengingMix(2, (-9, 9), preset.variables),
+        preset.MultiOperationInsaneMix(1, (-9, 9), preset.variables)
+    ],
+    [preset.MultiOperationAdvancedMix(3, (-9, 9), preset.variables, True)],
+    [problems.LinearGraphingProblem(5, (-4, 4))]
 ]
-prob_names = ["Test"]
-prob_insts = [NoEscape("Simplify the following expressions.")]
-prob_cols = [2]
+prob_names = ["Exponent Rules", "Polynomial Simplification", "Linear Equations", "Linear Inequalities", "Linear Graphing"]
+prob_insts = [NoEscape("Simplify the following expressions as much as possible."),
+              NoEscape("Simplify the following polynomials."),
+              NoEscape("Solve the following linear equations for the unknown variable. Verify your solution."),
+              NoEscape("Solve the following inequalities for the unknown variable. Verify your solution both at and beyond the bound."),
+              NoEscape("Graph the following linear relations.")]
+prob_cols = [2, 1, 1, 1, 1]
 # If mix_up is True, questions are generated in mixed order for that section.
-mix_up = [False]
-title = "Test"   # ignored if there's only one section
+mix_up = [False, True, True, False, False]
+title = "Grade 9 Review"   # ignored if there's only one section
 
 # Don't edit below
 if len({len(probs), len(prob_names), len(prob_insts), len(prob_cols)}) > 1:

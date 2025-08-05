@@ -808,7 +808,7 @@ class PolynomialSubtract(PolynomialSimplify):
 
 
 class PolynomialMultiply(PolynomialSimplify):
-    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], max_term_count: int=2, *var: str):
+    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], *var: str, min_term_count: int=1, max_term_count: int=2):
         """
         Generates a problem where two polynomials are multiplied.
         The polynomials contain only one variable.
@@ -821,16 +821,23 @@ class PolynomialMultiply(PolynomialSimplify):
                        The lower bound is capped by max_term_count-1 for the left multiplicand.
                        That is, if max_term_count=3, then the degree of the left multiplicand will be 2 or more,
                        even if the lower bound in drange is less than 2.
-        :param max_term_count: Maximum number of terms allowed for the left multiplicand. The default is 2 (binomial).
         :param var: The possible variables to be used. Only one of them will be used per question.
                     The default is just x.
+        :param min_term_count: Minimum number of terms allowed for the left multiplicand. Must be at least 1.
+                               This cannot be above drange[0] + 1. The default is 1 (monomial).
+        :param max_term_count: Maximum number of terms allowed for the left multiplicand. The default is 2 (binomial).
         """
+        if min_term_count < 1:
+            raise ValueError(f"min_term_count must be at least 1")
+        if min_term_count > drange[0] + 1:
+            raise ValueError(f"the drange {drange} is not valid for the min_term_count {min_term_count}")
         super().__init__(num_quest, crange, drange, *var, max_like=1)
+        self.min_term_count = min_term_count
         self.max_term_count = max_term_count
 
     def get_problem(self) -> list[Math]:
         var = choice(self.var)
-        left_term_count = randint(1, self.max_term_count)
+        left_term_count = randint(self.min_term_count, min(self.max_term_count, self.drange[1] + 1))
         left = self.generate_polynomial(randint(max(self.drange[0], left_term_count-1), self.drange[1]), left_term_count, var)
         right = self.generate_polynomial(var=var)
         self.num_quest -= 1
@@ -847,8 +854,9 @@ class PolynomialDivide(PolynomialSimplify):
         :param num_quest: The number of questions to be generated.
         :param crange: The range used for the coefficients, (begin, end) inclusive.
                        The generated coefficient will never be 0.
-        :param drange: The range used for the degree of the dividend and the divisor, (begin, end) inclusive.
+        :param drange: The range used to generate the degree of the dividend and the divisor, (begin, end) inclusive.
                        This range cannot contain a negative number.
+                       The numerator degree might exceed the range, but not the denominator.
         :param var: The possible variables to be used. Only one of them will be used per question.
                     The default is just x.
         :param no_constant: If True, the degree of the divisor will be at least 1.
@@ -865,7 +873,7 @@ class PolynomialDivide(PolynomialSimplify):
             divisor = self.generate_polynomial(randint(max(1, self.drange[0]), self.drange[1]), 1, var)
         else:
             divisor = self.generate_polynomial(num_terms=1, var=var)
-        quotient = self.generate_polynomial(randint(0, self.drange[1] - divisor.degree), var=var)
+        quotient = self.generate_polynomial(var=var)
         dividend = divisor * quotient
 
         self.num_quest -= 1
@@ -2146,8 +2154,8 @@ class ExponentRulePractice(ProblemBase):
         match prob_type:
             case "simple_mult":
                 b = draw_b(True)
-                e1 = draw_e
-                e2 = draw_e
+                e1 = draw_e()
+                e2 = draw_e()
                 result.extend([NoEscape(f"{b.dumps()}^{{{e1}}}"), Command("times"), NoEscape(f"{b.dumps()}^{{{e2}}}")])
             case "simple_div":
                 b = draw_b(True)

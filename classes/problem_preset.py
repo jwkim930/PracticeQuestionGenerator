@@ -1,6 +1,9 @@
 import classes.problems as problems
 
 
+variables = ("x", "y", "z", "m", "n", "k", "r")
+
+
 class RectangleAreaProblem(problems.WordProblem):
     def __init__(self, num_quest: int):
         super().__init__(num_quest, '4cm', 'RectangleArea', [(2, 12), (2, 12)])
