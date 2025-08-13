@@ -826,7 +826,10 @@ class PolynomialMultiply(PolynomialSimplify):
         :param min_term_count: Minimum number of terms allowed for the left multiplicand. Must be at least 1.
                                This cannot be above drange[0] + 1. The default is 1 (monomial).
         :param max_term_count: Maximum number of terms allowed for the left multiplicand. The default is 2 (binomial).
+                               This cannot be less than min_term_count.
         """
+        if min_term_count > max_term_count:
+            raise ValueError(f"min_term_count ({min_term_count}) cannot be greater than max_term_count({max_term_count})")
         if min_term_count < 1:
             raise ValueError(f"min_term_count must be at least 1")
         if min_term_count > drange[0] + 1:
