@@ -2249,3 +2249,46 @@ class ExponentRulePractice(ProblemBase):
 
         self.num_quest -= 1
         return [Math(data=result, inline=True)]
+
+
+class TrigonometryProblem(ProblemBase):
+    def __init__(self, num_quest: int, lrange: tuple[NumberArgument, NumberArgument], arange: tuple[int, int], units=('cm',), precision=1):
+        """
+        Initializes a problem where right triangles are solved using trigonometric ratios.
+
+        :param num_quest: The number of questions to be generated.
+        :param lrange: The range used for the lengths in the triangle, (begin, end) inclusive.
+        :param arange: The range used for the known angle (in degrees) in the triangle, (begin, end) inclusive.
+        :param units: The units of length to be used. One problem will only use one unit.
+        :param precision: The precision of the lengths. 0 means whole number, 1 means first decimal place, etc.
+        """
+        lrange = Number(lrange[0]), Number(lrange[1])
+        if lrange[1] < lrange[0]:
+            raise ValueError(f"invalid lrange given: {lrange}")
+        if lrange[0] < 0:
+            raise ValueError(f"lrange cannot contain a negative number, was given {lrange}")
+        if arange[1] < arange[0]:
+            raise ValueError(f"invalid arange given: {arange}")
+        if precision < 0:
+            raise ValueError(f"precision cannot be negative, was given {precision}")
+
+        super().__init__(num_quest, "0cm")
+        self.lrange = lrange
+        self.arange = arange
+        self.units = units
+        self.precision = precision
+
+    def get_problem(self) -> list[DocInjector]:
+        def lengths_to_vertices(a: Number, b: Number, c: Number, orientation=0) -> tuple[float, float, float]:
+            """
+            :param a: The length of one side making up the right angle.
+            :param b: The length of another side making up the right angle.
+            :param c: The length of the hypotenuse.
+            :param orientation: Determines the orientation of the triangle.
+                                1, 2, 3, and 4 corresponds to the right angle being at the
+                                top-left, top-right, bottom-left, and bottom-right, recpectively.
+                                If set to anything other than those, one will be randomly chosen.
+            :return: The coordinates of the vertices of the triangle.
+            """
+            pass   # stub for now
+        pass   # stub for now
