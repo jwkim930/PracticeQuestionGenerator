@@ -901,7 +901,7 @@ class EquationMultiOperation(ProblemBase):
         double_dist: a(bx + c) = d(ex + f)
         double_frac: \frac{x}{a} + \frac{b}{c} = \frac{d}{e}
         double_frac_dist: \frac{a}{b}(x + c) = \frac{d}{e}(x + f)
-        rational: \frac{a}{x} = b
+        rational: \frac{a}{x} = b, cannot be used with inequality
         frac_const: \frac{x}{a} + b = \frac{c}{d}
         bino_frac: \frac{x + a}{b} + \frac{c}{d} = \frac{e}{f}
         double_bino_frac: \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f}
@@ -954,9 +954,15 @@ class EquationMultiOperation(ProblemBase):
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
+        if inequality and len(types) == 1 and types[0] == 'rational':
+            raise ValueError("Inequality problems require something other than rational type")
 
         if not types:
             types = possible_types
+        if inequality and 'rational' in types:
+            tmp = list(types)
+            tmp.remove('rational')
+            types = tuple(tmp)
         self.types = types
         self.nrange = nrange
         self.var = var
