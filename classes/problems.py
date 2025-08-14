@@ -2,12 +2,33 @@ from random import randint, choice, shuffle, random, sample, choices
 from decimal import Decimal
 from abc import ABC, abstractmethod
 
-from pylatex import Math, Alignat, Command, Tabular, MiniPage
-from pylatex.base_classes import LatexObject
+from typing import Callable
+from pylatex import Math, Command, Tabular, MiniPage, Document, VerticalSpace, StandAloneGraphic, TikZ, Axis, Plot
+from pylatex.base_classes import Environment, CommandBase
 from pylatex.utils import NoEscape
 import math
+import numpy as np
+import sympy as sp
 
 from classes.math_objects import *
+
+
+class DocInjector:
+    def __init__(self, body: Callable[[Document], None]):
+        """
+        Allows injecting a function into Document.
+        Avoiding using this unless necessary (e.g. to use an environment).
+
+        :param body: The function to be injected.
+        """
+        self.body = body
+
+    def inject(self, doc: Document):
+        """
+        Injects the function into Document.
+        :param doc: The Document instance.
+        """
+        self.body(doc)
 
 
 class ProblemBase(ABC):
@@ -21,10 +42,12 @@ class ProblemBase(ABC):
         self.vspace = vspace
 
     @abstractmethod
-    def get_problem(self) -> Math | Alignat | NoEscape:
+    def get_problem(self) -> list[Math | NoEscape | CommandBase | DocInjector]:
         """
         Returns a practice problem.
         Decrements num_quest in the object.
+        Call .inject() for DocInjector with Document passed in,
+        and append other types directly to the Document.
         """
         pass   # child class should implement this
 
@@ -65,10 +88,10 @@ class BinaryOperation(ProblemBase, ABC):
                 ops[other_i] = -ops[other_i]
         return ops[0], ops[1]
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         o1, o2 = self.generate_random_operands()
         self.num_quest -= 1
-        return Math(inline=True, data=o1.get_latex() + [self.operand] + o2.get_latex() + ["="])
+        return [Math(inline=True, data=o1.get_latex() + [self.operand] + o2.get_latex() + ["="])]
 
 
 class IntegerBinaryOperation(BinaryOperation):
@@ -212,14 +235,14 @@ class WordProblem(ProblemBase):
             if not found:
                 raise ValueError("{} not found in the file".format(name))
 
-    def get_problem(self) -> NoEscape:
+    def get_problem(self) -> list[NoEscape]:
         result = self.problem
 
         for prange in self.ranges:
             result = result.replace('@', str(randint(prange[0], prange[1])), 1)
 
         self.num_quest -= 1
-        return NoEscape(result)
+        return [NoEscape(result)]
 
 
 class GraphingProblem(ProblemBase, ABC):
@@ -227,57 +250,107 @@ class GraphingProblem(ProblemBase, ABC):
         """
         Initializes a graphing problem.
         It requires graphing_grid.png in the document_output folder.
+
+        :param num_quest: The number of questions to be generated.
         """
         super().__init__(num_quest, '0cm')
 
     @abstractmethod
-    def get_random_function(self) -> str:
+    def get_random_function(self) -> NoEscape:
         """
         Returns a function with randomized parameters.
         """
         pass   # child class should implement this
 
-    def get_problem(self) -> NoEscape:
-        result = NoEscape('$f(x)=' + self.get_random_function() + '$\n\n' \
-               + r'\vspace{2em}' + '\n\n' \
-               + r'\includegraphics[width=0.3\linewidth]{graphing_grid.png}')
+    def get_problem(self) -> list[Math | NoEscape | CommandBase]:
+        result = [
+            Math(data=["f(x)=", self.get_random_function()], inline=True),
+            NoEscape("\n"),
+            VerticalSpace("2em"),
+            NoEscape("\n"),
+            StandAloneGraphic("graphing_grid.png", "width=0.3\\linewidth")
+        ]
 
         self.num_quest -= 1
         return result
 
 
 class LinearGraphingProblem(GraphingProblem):
-    def __init__(self, num_quest: int, a_range: tuple[int, int], b_range: tuple[int, int]):
+    def __init__(self, num_quest: int, num_range: tuple[int, int], *types: str):
         """
         Initializes a graphing problem for a linear function.
-        The produced function will be in the form ax + b.
         It requires graphing_grid.png in the document_output folder.
 
+        The possible types are the following (there's a 50% chance the coefficient a will be a fraction):
+        - si: ax + b, a != 0
+        - sp: a(x - h) + k, a, h != 0
+
         :param num_quest: The number of questions to be generated.
-        :param a_range: The range for the coefficient, (begin, end) inclusive. 0 is automatically excluded.
-        :param b_range: The range for the constant, (begin, end) inclusive.
+        :param num_range: The range for the parameters, (begin, end) inclusive.
+                          This must contain at least two integers where at least one is non-zero.
+        :param types: The possible types of the problems. Refer to docstring for the list of all options.
         """
         super().__init__(num_quest)
-        self.a_range = a_range
-        self.b_range = b_range
+        if num_range[1] - num_range[0] < 2:
+            raise ValueError("Fewer than two integers found in the number range")
+
+        possible_types = ("si", "sp")
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"Problem type {t} is not a valid type")
+        if not types:
+            types = possible_types
+
+        self.num_range = num_range
+        self.types = types
 
     def get_random_function(self):
-        a = randint(self.a_range[0], self.a_range[1])
-        while a == 0:
-            a = randint(self.a_range[0], self.a_range[1])
-        b = randint(self.b_range[0], self.b_range[1])
-        a_str = ''
-        if a == -1:
-            a_str = '-'
-        elif a != 1:
-            a_str = str(a)
-        b_str = ''
-        if b < 0:
-            b_str = '-' + str(-b)
-        elif b != 0:
-            b_str = '+' + str(b)
+        prob = choice(self.types)
+        result = NoEscape()
 
-        return a_str + 'x' + b_str
+        if random() < 0.5:
+            # a is integer
+            a = randint(self.num_range[0], self.num_range[1])
+            while a == 0:
+                a = randint(self.num_range[0], self.num_range[1])
+
+            # wrap in BaseMathClass for the dumps() call later
+            if a == -1:
+                a = TextWrapper(["-"])
+            elif a == 1:
+                a = TextWrapper()
+            else:
+                a = Number(a)
+        else:
+            # a is fraction
+            a = Fraction(1, 1)
+            while a.denom == 1:
+                num = randint(self.num_range[0], self.num_range[1])
+                while num == 0:
+                    num = randint(self.num_range[0], self.num_range[1])
+                denom = randint(self.num_range[0], self.num_range[1])
+                while denom == 0:
+                    denom = randint(self.num_range[0], self.num_range[1])
+                a = Fraction(abs(num), abs(denom), (num * denom) // abs(num * denom), big=False).simplified()
+
+        match prob:
+            case "si":
+                b = randint(self.num_range[0], self.num_range[1])
+                poly = UnsafePolynomial(a.dumps() + "x", Number(b))
+                result = poly.dumps()
+            case "sp":
+                h = randint(self.num_range[0], self.num_range[1])
+                while h == 0:
+                    h = randint(self.num_range[0], self.num_range[1])
+                k = randint(self.num_range[0], self.num_range[1])
+                mini_poly = SingleVariablePolynomial("x", [
+                    {"coefficient": 1, "exponent": 1},
+                    {"coefficient": -h, "exponent": 0}
+                ], wrap=True)
+                poly = UnsafePolynomial(a.dumps() + mini_poly.dumps(), Number(k))
+                result = poly.dumps()
+
+        return result
 
 
 class SquareRootProblem(ProblemBase):
@@ -320,7 +393,7 @@ class SquareRootProblem(ProblemBase):
             if (not frac and len(self.operand_candidates) < num_quest) or (frac and len(self.operand_candidates) < 2 * num_quest):
                 raise ValueError(f"Operand range is not big enough to generate {num_quest} questions")
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         if not self.frac:
             chosen = choice(self.operand_candidates)
             if self.no_duplicate:
@@ -336,7 +409,7 @@ class SquareRootProblem(ProblemBase):
             result = Math(inline=True, data=[Command('sqrt', Fraction(num, denom).get_latex())])
 
         self.num_quest -= 1
-        return result
+        return [result]
 
 
 class SquareRootDecimalProblem(SquareRootProblem):
@@ -441,7 +514,7 @@ class LinearRelationProblem(ProblemBase):
             self.x_values.append(x)
             x += x_range[2]
 
-    def get_problem(self) -> NoEscape:
+    def get_problem(self) -> list[DocInjector]:
         def decimal_randrange(start, end, step) -> Decimal:
             count = int((end - start) // step)   # 1 less than the total number of candidates
             return start + randint(0, count) * step
@@ -452,19 +525,20 @@ class LinearRelationProblem(ProblemBase):
             h = decimal_randrange(self.h_range[0], self.h_range[1], self.h_range[2])
         k = decimal_randrange(self.k_range[0], self.k_range[1], self.k_range[2])
 
-        # assemble the table of values
-        xy_table = Tabular("c|c")
-        xy_table.add_row(Math(inline=True, data=['x']), Math(inline=True, data=['y']))
-        xy_table.add_hline()
-        for x in self.x_values:
-            xy_table.add_row(Math(inline=True, data=[str(x)]), Math(inline=True, data=[str(h*x + k)]))
-
-        # put the figures into minipages for alignment
-        xy_page = MiniPage(width='3cm', data=xy_table)
-        graph_page = MiniPage(width=r'0.3\textwidth', data=NoEscape(r'\includegraphics[width=\linewidth]{graphing_grid.png}'))
+        def body(doc: Document):
+            # put the figures into minipages for alignment
+            with doc.create(MiniPage(width='3cm')):
+                # assemble the table of values
+                with doc.create(Tabular("c|c")) as xy_table:
+                    xy_table.add_row(Math(inline=True, data=['x']), Math(inline=True, data=['y']))
+                    xy_table.add_hline()
+                    for x in self.x_values:
+                        xy_table.add_row(Math(inline=True, data=[str(x)]), Math(inline=True, data=[str(h * x + k)]))
+            with doc.create(MiniPage(width=r'0.3\textwidth')):
+                doc.append(StandAloneGraphic("graphing_grid.png", "width=\\linewidth"))
 
         self.num_quest -= 1
-        return NoEscape(xy_page.dumps() + graph_page.dumps())
+        return [DocInjector(body)]
 
 
 class EquationSingleOperation(ProblemBase):
@@ -502,7 +576,7 @@ class EquationSingleOperation(ProblemBase):
         self.nrange = nrange
         self.operations = operations if len(operations) > 0 else (('add', 'sub', 'mul', 'div') if not zero_only else ('add', 'sub', 'mul'))
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         operation = choice(self.operations)
         constant_side = [randint(self.nrange[0], self.nrange[1])]
         operand = Number(randint(self.nrange[0], self.nrange[1]))
@@ -522,9 +596,9 @@ class EquationSingleOperation(ProblemBase):
 
         self.num_quest -= 1
         if randint(0, 1) == 0:
-            return Math(inline=True, data=variable_side + ['='] + constant_side)
+            return [Math(inline=True, data=variable_side + ['='] + constant_side)]
         else:
-            return Math(inline=True, data=constant_side + ['='] + variable_side)
+            return [Math(inline=True, data=constant_side + ['='] + variable_side)]
 
 
 class PolynomialSimplify(ProblemBase):
@@ -598,7 +672,7 @@ class PolynomialSimplify(ProblemBase):
         """
         return {'coefficient': self.random_coefficient(), 'exponent': exp}
 
-    def generate_polynomial(self, degree: int=None, num_terms: int=None) -> SingleVariablePolynomial:
+    def generate_polynomial(self, degree: int=None, num_terms: int=None, var: str=None) -> SingleVariablePolynomial:
         """
         Randomly generates a polynomial, following the rules outlined in __init()__.
 
@@ -606,6 +680,8 @@ class PolynomialSimplify(ProblemBase):
         :param num_terms: If set, the generated polynomial will have exactly this many terms.
                           To use this, max_like must be 1.
                           If set to None (default), there will be no set number.
+        :param var: Use this variable for the polynomial. Must be a member of self.var.
+                    If set to None (default), a random one will be drawn from self.var.
         """
         if degree is None:
             degree = randint(self.drange[0], self.drange[1])
@@ -615,6 +691,10 @@ class PolynomialSimplify(ProblemBase):
             raise ValueError("The number of terms must be positive")
         if num_terms and self.max_like > 1:
             raise ValueError("num_terms argument cannot be used unless max_like is 1")
+        if var is None:
+            var = choice(self.var)
+        elif var not in self.var:
+            raise ValueError(f"The chosen variable {var} is not in self.var == {self.var}")
 
         # determine the number of like terms for each possible exponent
         term_count = [0 for _ in range(degree + 1)]  # index is exponent
@@ -655,11 +735,44 @@ class PolynomialSimplify(ProblemBase):
 
         # return result as polynomial
         shuffle(poly)
-        return SingleVariablePolynomial(choice(self.var), poly)
+        return SingleVariablePolynomial(choice(var), poly)
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         self.num_quest -= 1
-        return Math(inline=True, data=self.generate_polynomial().get_latex())
+        return [Math(inline=True, data=self.generate_polynomial().get_latex())]
+
+
+class PolynomialAdd(PolynomialSimplify):
+    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], *var: str, min_term_count: int = 1):
+        """
+        Generates a problem where two polynomials are added.
+        The polynomials contain only one variable.
+
+        :param num_quest: The number of questions to be generated.
+        :param crange: The range used for the coefficients, (begin, end) inclusive.
+                       The generated coefficient will never be 0.
+        :param drange: The range used for the degree of the polynomial, (begin, end) inclusive.
+                       This range cannot contain a negative number.
+        :param min_term_count: The minimum number of terms to be used for each polynomial.
+                               1 by default.
+        :param var: The possible variables to be used. Only one of them will be used per question.
+                    The default is just x.
+        """
+        super().__init__(num_quest, crange, drange, *var, max_like=1)
+        if drange[1] + 1 < min_term_count:
+            raise ValueError(f"drange not big enough to generate {min_term_count} terms")
+        self.min_term_count = min_term_count
+
+    def get_problem(self) -> list[Math]:
+        polies = []
+        var = choice(self.var)
+        for _ in range(2):
+            degree = randint(max(self.drange[0], self.min_term_count - 1), self.drange[1])
+            term_count = randint(self.min_term_count, degree + 1)
+            polies.append(self.generate_polynomial(degree, term_count, var))
+        self.num_quest -= 1
+        return [Math(inline=True,
+                     data=polies[0].get_latex() + ['+', Command('left(')] + polies[1].get_latex() + [Command('right)')])]
 
 
 class PolynomialSubtract(PolynomialSimplify):
@@ -683,18 +796,19 @@ class PolynomialSubtract(PolynomialSimplify):
             raise ValueError(f"drange not big enough to generate {min_term_count} terms")
         self.min_term_count = min_term_count
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         polies = []
+        var = choice(self.var)
         for _ in range(2):
             degree = randint(max(self.drange[0], self.min_term_count - 1), self.drange[1])
             term_count = randint(self.min_term_count, degree + 1)
-            polies.append(self.generate_polynomial(degree, term_count))
+            polies.append(self.generate_polynomial(degree, term_count, var))
         self.num_quest -= 1
-        return Math(inline=True, data=polies[0].get_latex() + ['-', Command('left(')] + polies[1].get_latex() + [Command('right)')])
+        return [Math(inline=True, data=polies[0].get_latex() + ['-', Command('left(')] + polies[1].get_latex() + [Command('right)')])]
 
 
 class PolynomialMultiply(PolynomialSimplify):
-    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], max_term_count: int=2, *var: str):
+    def __init__(self, num_quest: int, crange: tuple[int, int], drange: tuple[int, int], *var: str, min_term_count: int=1, max_term_count: int=2):
         """
         Generates a problem where two polynomials are multiplied.
         The polynomials contain only one variable.
@@ -707,19 +821,30 @@ class PolynomialMultiply(PolynomialSimplify):
                        The lower bound is capped by max_term_count-1 for the left multiplicand.
                        That is, if max_term_count=3, then the degree of the left multiplicand will be 2 or more,
                        even if the lower bound in drange is less than 2.
-        :param max_term_count: Maximum number of terms allowed for the left multiplicand. The default is 2 (binomial).
         :param var: The possible variables to be used. Only one of them will be used per question.
                     The default is just x.
+        :param min_term_count: Minimum number of terms allowed for the left multiplicand. Must be at least 1.
+                               This cannot be above drange[0] + 1. The default is 1 (monomial).
+        :param max_term_count: Maximum number of terms allowed for the left multiplicand. The default is 2 (binomial).
+                               This cannot be less than min_term_count.
         """
+        if min_term_count > max_term_count:
+            raise ValueError(f"min_term_count ({min_term_count}) cannot be greater than max_term_count({max_term_count})")
+        if min_term_count < 1:
+            raise ValueError(f"min_term_count must be at least 1")
+        if min_term_count > drange[0] + 1:
+            raise ValueError(f"the drange {drange} is not valid for the min_term_count {min_term_count}")
         super().__init__(num_quest, crange, drange, *var, max_like=1)
+        self.min_term_count = min_term_count
         self.max_term_count = max_term_count
 
-    def get_problem(self) -> Math:
-        left_term_count = randint(1, self.max_term_count)
-        left = self.generate_polynomial(randint(max(self.drange[0], left_term_count-1), self.drange[1]), left_term_count)
-        right = self.generate_polynomial()
+    def get_problem(self) -> list[Math]:
+        var = choice(self.var)
+        left_term_count = randint(self.min_term_count, min(self.max_term_count, self.drange[1] + 1))
+        left = self.generate_polynomial(randint(max(self.drange[0], left_term_count-1), self.drange[1]), left_term_count, var)
+        right = self.generate_polynomial(var=var)
         self.num_quest -= 1
-        return Math(inline=True, data=[Command('left(')] + left.get_latex() + [Command('right)'), Command('left(')] + right.get_latex() + [Command('right)')])
+        return [Math(inline=True, data=[Command('left(')] + left.get_latex() + [Command('right)'), Command('left(')] + right.get_latex() + [Command('right)')])]
 
 
 class PolynomialDivide(PolynomialSimplify):
@@ -732,8 +857,9 @@ class PolynomialDivide(PolynomialSimplify):
         :param num_quest: The number of questions to be generated.
         :param crange: The range used for the coefficients, (begin, end) inclusive.
                        The generated coefficient will never be 0.
-        :param drange: The range used for the degree of the dividend and the divisor, (begin, end) inclusive.
+        :param drange: The range used to generate the degree of the dividend and the divisor, (begin, end) inclusive.
                        This range cannot contain a negative number.
+                       The numerator degree might exceed the range, but not the denominator.
         :param var: The possible variables to be used. Only one of them will be used per question.
                     The default is just x.
         :param no_constant: If True, the degree of the divisor will be at least 1.
@@ -744,16 +870,17 @@ class PolynomialDivide(PolynomialSimplify):
             raise ValueError("no_constant used yet drange doesn't contain 1 or higher")
         self.no_constant = no_constant
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
+        var = choice(self.var)
         if self.no_constant:
-            divisor = self.generate_polynomial(randint(max(1, self.drange[0]), self.drange[1]), 1)
+            divisor = self.generate_polynomial(randint(max(1, self.drange[0]), self.drange[1]), 1, var)
         else:
-            divisor = self.generate_polynomial(num_terms=1)
-        quotient = self.generate_polynomial(randint(0, self.drange[1] - divisor.degree))
+            divisor = self.generate_polynomial(num_terms=1, var=var)
+        quotient = self.generate_polynomial(var=var)
         dividend = divisor * quotient
 
         self.num_quest -= 1
-        return Math(inline=True, data=PolynomialFraction(dividend, divisor).get_latex())
+        return [Math(inline=True, data=PolynomialFraction(dividend, divisor).get_latex())]
 
 
 class EquationMultiOperation(ProblemBase):
@@ -774,7 +901,7 @@ class EquationMultiOperation(ProblemBase):
         double_dist: a(bx + c) = d(ex + f)
         double_frac: \frac{x}{a} + \frac{b}{c} = \frac{d}{e}
         double_frac_dist: \frac{a}{b}(x + c) = \frac{d}{e}(x + f)
-        rational: \frac{a}{x} = b
+        rational: \frac{a}{x} = b, cannot be used with inequality
         frac_const: \frac{x}{a} + b = \frac{c}{d}
         bino_frac: \frac{x + a}{b} + \frac{c}{d} = \frac{e}{f}
         double_bino_frac: \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f}
@@ -827,9 +954,15 @@ class EquationMultiOperation(ProblemBase):
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
+        if inequality and len(types) == 1 and types[0] == 'rational':
+            raise ValueError("Inequality problems require something other than rational type")
 
         if not types:
             types = possible_types
+        if inequality and 'rational' in types:
+            tmp = list(types)
+            tmp.remove('rational')
+            types = tuple(tmp)
         self.types = types
         self.nrange = nrange
         self.var = var
@@ -860,7 +993,7 @@ class EquationMultiOperation(ProblemBase):
         """
         return self.draws(1, *blacklist)[0]
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         if self.inequality:
             middle = choice(['>', '<', Command('geq'), Command('leq')])
         else:
@@ -1225,7 +1358,7 @@ class EquationMultiOperation(ProblemBase):
             result = rhs.get_latex() + [middle] + lhs.get_latex() + [NoEscape("\\quad")] + disclaimer
 
         self.num_quest -= 1
-        return Math(inline=True, data=result)
+        return [Math(inline=True, data=result)]
 
 
 class FactorPolynomial(EquationMultiOperation):
@@ -1283,16 +1416,40 @@ class FactorPolynomial(EquationMultiOperation):
             types = possible_types
         self.types = types
 
-    def get_problem(self):
+    def get_random_polynomial(self, prob_type: str) -> MultiVariablePolynomial:
+        """
+        Generates a polynomial with random non-zero parameters.
+        A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+        A denominator will never be 1.
+        A fraction will always have distinct numerator and denominator.
+
+        Possible types (the variable is always x, the rest are random. The order of terms may be randomized):
+
+        number: single-variable polynomial with a common integer factor
+        symbol: two-variable polynomial with a common variable factor
+        twonum: two-variable polynomial with a common integer factor
+        numsym: two-variable polynomial with common integer and variable factors
+        mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
+        nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
+        quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
+        quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
+        quad_twosym: two-variable polynomial that can be factored into two binomials
+        square: a perfect square of a single-variable binomial
+        square_twosym: a perfect square of a two-variable binomial
+        diffsq: the difference of a perfect square monomial and a perfect square constant
+        quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
+
+        :param prob_type: The type of polynomial to be used.
+                          Refer to the docstring for the options and the description of each type.
+        """
         def two_vars() -> tuple[str, str]:
             if len(self.var) == 1:
                 v1 = self.var[0]
-                v2 = 'y' if var1 == 'x' else 'x'
+                v2 = 'y' if v1 == 'x' else 'x'
             else:
                 v1, v2 = tuple(sample(self.var, 2))
             return v1, v2
 
-        prob_type = choice(self.types)
         poly = None
 
         match prob_type:
@@ -1460,8 +1617,13 @@ class FactorPolynomial(EquationMultiOperation):
                         poly.append(Term(var, s[i], 2-i))
                 poly.mix()
 
+        return poly
+
+    def get_problem(self):
+        prob_type = choice(self.types)
+        poly = self.get_random_polynomial(prob_type)
         self.num_quest -= 1
-        return Math(inline=True, data=[poly.dumps()])
+        return [Math(inline=True, data=[poly.dumps()])]
 
 
 class QuadraticEquation(EquationMultiOperation):
@@ -1502,7 +1664,7 @@ class QuadraticEquation(EquationMultiOperation):
         else:
             self.types = types
 
-    def get_problem(self) -> Math:
+    def get_problem(self):
         if self.inequality:
             middle = choice(['>', '<', Command('geq'), Command('leq')])
         else:
@@ -1557,6 +1719,533 @@ class QuadraticEquation(EquationMultiOperation):
 
         self.num_quest -= 1
         if random() < 0.5:
-            return Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())
+            return [Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())]
         else:
-            return Math(inline=True, data=rhs.get_latex() + [middle] + lhs.get_latex())
+            return [Math(inline=True, data=rhs.get_latex() + [middle] + lhs.get_latex())]
+
+
+class LinearSystem(ProblemBase):
+    def __init__(self, num_quest: int, crange: tuple[int, int], size: int, *types: str, var: tuple[str, ...]=tuple(), solvability=0):
+        """
+        Initializes a problem where a system of linear equations must be solved.
+        In standard form, the rank of the coefficient matrix will be at least 2 unless size is 1.
+
+        The possible problem types are as follows:
+        - standard: size * size system in standard form (Ax = b)
+
+        :param num_quest: The number of questions to be generated.
+        :param crange: The range of generated coefficients, (begin, end) inclusive.
+        :param size: The number of variables in the problem. Must be at least 2.
+        :param types: The problem types to be used (one will be randomly chosen for each problem).
+                      Refer to the docstring for the possible types. If omitted, the problems will
+                      be drawn from all possible types.
+        :param var: The variable names to be used. If fewer than size, more will be added
+                    in the priority x, y, z, w, t, u, v, p, q, r to match size. If this runs out,
+                    the code results in an error. If more variables than size are provided, then
+                    they will be randomly drawn from the tuple.
+        :param solvability: When set to 0 (default), the system has a unique solution.
+                            When set to 1, the system has no solution.
+                            When set to 2, the system has infinitely many solutions.
+                            When set to 3, the system has 0, 1, or infinitely many solutions by uniform probability.
+        """
+        super().__init__(num_quest, "6cm")
+        if size < 2:
+            raise ValueError("The problem size must be 2")
+        possible_types = (
+            "standard",
+        )
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"Problem type {t} is invalid; refer to docstring for the list of possible types")
+        if not types:
+            types = possible_types
+        if solvability not in (0, 1, 2, 3):
+            raise ValueError("Invalid argument value for solvability")
+        if len(var) < size:
+            for v in ('x', 'y', 'z', 'w', 't', 'u', 'v', 'p', 'q', 'r'):
+                if v not in var:
+                    var = (*var, v)
+                if len(var) == size:
+                    break
+            if len(var) < size:
+                raise ValueError("Not enough variables for the given size; you must manually assign additional variables")
+
+        self.crange = crange
+        self.size = size
+        self.var = var
+        self.types = types
+        self.solvability = solvability
+
+    def generate_standard_system(self) -> np.ndarray:
+        """
+        Returns a size * (size + 1) integer array that represents the augmented coeffiicient matrix
+        Ax = b as (A|b). The system may or may not be consistent based on the solvability value.
+        """
+        if self.solvability == 0 or (self.solvability == 3 and random() < 1/3):
+            system = np.random.randint(self.crange[0], self.crange[1] + 1, (self.size, self.size + 1))
+            for _ in range(100):
+                if np.linalg.det(system[:, :-1]) == 0:
+                    system = np.random.randint(self.crange[0], self.crange[1] + 1, (self.size, self.size + 1))
+                else:
+                    break
+            if np.linalg.det(system[:, :-1]) == 0:
+                raise ValueError(f"The given crange of {self.crange} cannot seem to generate a consistent system")
+            return system
+        else:
+            # choose the LHS matrix rank
+            rank = randint(min(self.size - 1, 2), self.size - 1)
+
+            def generate_independent_rows():
+                result = np.random.randint(self.crange[0], self.crange[1] + 1, (rank, self.size))
+                if rank > 1:
+                    # check linear independence
+                    for _ in range(100):
+                        sol = sp.solvers.linsolve(sp.Matrix(np.hstack((result.T, np.zeros((self.size, 1), dtype=np.int64)))))
+                        if len(sol) == 1:
+                            break
+                    if len(sol) != 1:
+                        raise ValueError(f"The given crange of {self.crange} cannot seem to generate a system with rank {rank}")
+                return result
+
+            # generate dependent rows using linear combinations
+            done = False
+            for _ in range(100):
+                system = generate_independent_rows()
+                valid_system = True
+                while system.shape[0] < self.size and valid_system:
+                    basis = system[:rank, :]
+                    valid_row = False
+                    for _ in range(1000):
+                        # try a random combination and see if it falls inside the range
+                        combined = np.zeros(self.size, np.int64)
+                        factors = np.random.randint(-5, 6, rank)
+                        while not np.any(factors):
+                            factors = np.random.randint(-5, 6, rank)
+                        for i in range(rank):
+                            combined += factors[i] * basis[i]
+                        if np.all(self.crange[0] <= combined) and np.all(combined <= self.crange[1]):
+                            valid_row = True
+                            break
+                    if valid_row:
+                        system = np.vstack((system, combined))
+                    else:
+                        valid_system = False
+                if valid_system:
+                    done = True
+                    break
+            if not done:
+                raise ValueError(f"The given crange cannot seem to generate a system with rank {rank}")
+            # append the appropriate RHS
+            if self.solvability == 1 or (self.solvability == 3 and random() < 0.5):
+                # choose RHS to have no solution
+                # this is more likely, so just use a random RHS and check
+                done = False
+                for _ in range(100):
+                    rhs = np.random.randint(self.crange[0], self.crange[1] + 1, (self.size, 1))
+                    if sp.solvers.linsolve(sp.Matrix(np.hstack((system, rhs)))).is_empty:
+                        done = True
+                        break
+                assert done, f"No RHS seems to result in having no solution, the LHS is:\n{system}"
+                return np.hstack((system, rhs))
+            else:
+                # choose RHS to have infinitely many solutions
+                # try different vectors from column space that fit inside the range
+                column_space = [np.array(a).astype(np.int64) for a in sp.Matrix(system).columnspace()]
+                for _ in range(1000):
+                    combined = np.zeros((self.size, 1), np.int64)
+                    factors = np.random.randint(-5, 6, len(column_space))
+                    while not np.any(factors):
+                        factors = np.random.randint(-5, 6, len(column_space))
+                    for i in range(len(column_space)):
+                        combined += factors[i] * column_space[i]
+                    if np.all(self.crange[0] <= combined) and np.all(combined <= self.crange[1]):
+                        return np.hstack((system, combined))
+                # end of loop reached without finding a valid RHS; simply try again
+                print("WARNING: failed attempt at generating a system with infinitely many solutions; reattempting with a different LHS")
+                return self.generate_standard_system()
+
+    def get_problem(self) -> list[Math]:
+        problem = choice(self.types)
+        variables = sample(self.var, self.size)
+        result = [r"\begin{cases}"]
+
+        match problem:
+            case "standard":
+                coefficients = self.generate_standard_system()
+                for i in range(self.size):
+                    lhs = list(coefficients[i, :-1])
+                    rhs = coefficients[i, -1]
+                    lhs_terms = []
+                    for j, n in enumerate(lhs):
+                        lhs_terms.append(Term(variables[j], int(n), 1))
+                    lhs = MultiVariablePolynomial(lhs_terms).remove_zeros()
+                    result.append(lhs.dumps() + "&=" + str(rhs))
+                    result.append(r"\\" + "\n")
+        result.pop(-1)   # remove the last newline
+        result.append(r"\end{cases}")
+        result = [NoEscape(s) for s in result]
+
+        self.num_quest -= 1
+        return [Math(inline=True, data=result)]
+
+
+class RadicalSimplify(ProblemBase):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], erange=(2, 2)):
+        """
+        Generates problems where a radical expression must be simplified.
+        The base of the generated radical is a * b^e,
+        where a, b are drawn from nrange and e is drawn from erange.
+        a, b are never perfect e-power.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range of values used to generate the radical expressions, (begin, end) inclusive.
+                       The lower bound must be at least 2 and the range must contain
+                       at least one integer that is not a perfect e-power for all possible values in erange.
+        :param erange: The range of possible exponents of the radical expression, (begin, end) inclusive.
+                       The lower bound must be at least 2 and must contain at least one integer.
+                       By default, all exponents will be 2.
+        """
+        if nrange[0] < 2 or erange[0] < 2:
+            raise ValueError("The lower bound of the ranges must be at least 2")
+        if nrange[0] > nrange[1] or erange[0] > erange[1]:
+            raise ValueError("At least one of the ranges do not contain any integer")
+        for e in range(erange[0], erange[1] + 1):
+            valid = False
+            n = nrange[0]
+            while not valid:
+                valid = RadicalSimplify.not_perfect_power(n, e)
+                if n > nrange[1]:
+                    raise ValueError(f"The given nrange cannot generate a non-perfect-{e}-power")
+                else:
+                    n += 1
+
+        super().__init__(num_quest, "0cm")
+        self.nrange = nrange
+        self.erange = erange
+
+    @staticmethod
+    def not_perfect_power(n: int, e: int, tol=0.0001) -> bool:
+        """
+        Returns True if \\sqrt[e]{n} doesn't evaluate to an integer, False otherwise.
+        """
+        return (n**(1/e)) % 1 > tol
+
+    def get_problem(self) -> Math:
+        e = randint(self.erange[0], self.erange[1])
+        a = randint(self.nrange[0], self.nrange[1])
+        while not RadicalSimplify.not_perfect_power(a, e):
+            # this loop should theoretically end thanks to the check in __init__
+            a = randint(self.nrange[0], self.nrange[1])
+        b = randint(self.nrange[0], self.nrange[1])
+        while not RadicalSimplify.not_perfect_power(b, e):
+            b = randint(self.nrange[0], self.nrange[1])
+
+        self.num_quest -= 1
+        if e == 2:
+            return Math(inline=True, data=[Command("sqrt", a * b**e), "="])
+        else:
+            return Math(inline=True, data=[Command("sqrt", a * b**e, e), "="])
+
+
+class QuadraticGraphingFactorable(GraphingProblem, FactorPolynomial):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str):
+        """
+        Initializes a problem where a quadratic function must be graphed,
+        where the quadratic function can be factored.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for the numbers in the polynomial, (begin, end) inclusive.
+        :param types: The types of polynomials to be used.
+                      Refer to FactorPolynomial's docstring for the options.
+                      You can only use quadratic types that use one variable, others will be ignored.
+                      If nothing is given, every type can appear.
+        """
+        GraphingProblem.__init__(self, num_quest)
+        FactorPolynomial.__init__(self, num_quest, nrange, *types, var=('x',))
+        # remove non-quadratic problems or those with more than one variable
+        prohibited_types = ("number",
+                            "symbol",
+                            "twonum",
+                            "numsym",
+                            "quad_numsym",
+                            "quad_twosym",
+                            "square_twosym")
+        self.types = tuple(t for t in self.types if t not in prohibited_types)
+        if not self.types:
+            raise ValueError("All the provided problem types are invalid for quadratic graphing")
+
+    def get_random_function(self) -> NoEscape:
+        return self.get_random_polynomial(choice(self.types)).dumps()
+
+
+class IdentifyGraph(ProblemBase, ABC):
+    def __init__(self, num_quest: int):
+        """
+        Initializes a problem where the equation of the graph must be identified.
+
+        :param num_quest: The number of questions to be generated.
+        """
+        super().__init__(num_quest, "0cm")
+
+    @abstractmethod
+    def get_random_function(self) -> tuple[NoEscape, tuple[int, int], tuple[int, int]]:
+        """
+        Returns a function with randomized parameters,
+        along with the axes limits to be used for graphing.
+
+        :return: function expression, xlim, ylim
+        """
+        pass   # child class should implement this
+
+    def get_problem(self) -> list[DocInjector]:
+        def body(doc: Document):
+            func, xlim, ylim = self.get_random_function()
+            xtick_distance = max(1, (xlim[1] - xlim[0]) // 3)
+            ytick_distance = max(1, (ylim[1] - ylim[0]) // 3)
+            with doc.create(TikZ()):
+                axis_options = rf"""
+                height=6cm, width=6cm,
+                grid=both,
+                grid style={{line width=.1pt, draw=gray!10}},
+                major grid style={{line width=.2pt, draw=gray!50}},
+                axis lines=center,
+                xmin={xlim[0]}, xmax={xlim[1]}, ymin={ylim[0]}, ymax={ylim[1]},
+                xtick distance={xtick_distance}, minor x tick num={xtick_distance - 1},
+                ytick distance={ytick_distance}, minor y tick num={ytick_distance - 1},
+                xlabel=\(x\), ylabel=\(y\)
+                """
+                with doc.create(Axis(options=NoEscape(axis_options))) as plot:
+                    plot_options = rf"""
+                    samples=100,
+                    domain={xlim[0]}:{xlim[1]},
+                    line width=1pt,
+                    mark=none
+                    """
+                    plot.append(Plot(func=func, options=NoEscape(plot_options)))
+
+        self.num_quest -= 1
+        return [DocInjector(body)]
+
+
+class IdentifyQuadraticGraph(IdentifyGraph):
+    def __init__(self, num_quest: int, arange: tuple[int, int], vrange: tuple[int, int], show_intercepts=False):
+        """
+        Initializes problems where a graph of a quadratic relation is drawn
+        and the student needs to find an equation for it.
+        The graph always shows the vertex.
+
+        :param num_quest: The number of questions to be generated.
+        :param arange: The range used for the coefficient of the x^2 term, (begin, end) inclusive.
+                       There's a 50:50 chance that the reciprocal of the generated number is used instead.
+                       a will never be 0 even if arange includes it.
+        :param vrange: The range used for the x and y-coordinate of the vertex, (begin, end) inclusive.
+        :param show_intercepts: If True, the x-intercept(s) are guaranteed to be shown (if they exist).
+        """
+        super().__init__(num_quest)
+        if 0 in arange:
+            raise ValueError("arange bounds cannot be 0")
+        self.arange = arange
+        self.vrange = vrange
+        self.show_intercepts = show_intercepts
+
+    def get_random_function(self):
+        a = 0
+        while a == 0:
+            a = randint(self.arange[0], self.arange[1])
+        if a != 0 and random() < 0.5:
+            a = 1 / a
+        vx = randint(self.vrange[0], self.vrange[1])
+        vy = randint(self.vrange[0], self.vrange[1])
+
+        # determine view region
+        r = int(max(abs(a), abs(1 / a)) * 3)
+        jitter = max(r // 6, 1)
+        xmin = vx - r + randint(1, jitter)
+        xmax = vx + r + randint(1, jitter)
+        ymin = vy - r + randint(1, jitter)
+        ymax = vy + r + randint(1, jitter)
+        if self.show_intercepts and a * vy < 0:
+            # there will be two x-intercepts, make sure they show up
+            b = -2 * a * vx
+            c = a * vx**2 + vy
+            x1 = math.floor((-b + math.sqrt(b**2 - 4*a*c)) / (2*a))   # rounded down to nearest integer
+            x2 = math.ceil((-b - math.sqrt(b**2 - 4*a*c)) / (2*a))   # rounded up to nearest integer
+            xmin = min(xmin, x1-1, x2-1)
+            xmax = max(xmax, x1+1, x2+1)
+            if a > 0:
+                ymax = max(ymax, 1)
+            else:
+                ymin = min(ymin, -1)
+
+        return NoEscape(f"({a}) * (x - ({vx})) * (x - ({vx})) + ({vy})"), (xmin, xmax), (ymin, ymax)
+
+
+class ExponentRulePractice(ProblemBase):
+    def __init__(self, num_quest: int, brange: tuple[int, int], erange: tuple[int, int], *types: str, sqrt_only=False):
+        r"""
+        Initializes problems where an expression needs to be simplified using exponent rules.
+        The bases are drawn randomly from brange and the exponents are drawn randomly from erange.
+        The drawn base will never be 0 or +-1.
+        The drawn exponent will never be 1.
+
+        Here are the possible problem types:
+        - simple_mult: b^(e1) * b^(e2)
+        - simple_div: \frac{b^(e1)}{b^(e2)}, e1 >= e2
+        - simple_exp: (b^(e1))^(e2)
+        - simple_dist: ((b1)^(e1) * (b2)^(e2))^(e3)
+        - simple_root: \sqrt[e2]{b^(e1*e2)}, e2 > 1 and e2 != 0
+            - If erange doesn't include anything greater than 1, e2 will always be 2 even if it's outside the range.
+            - This problem type requires erange to also contain something other than 0.
+        - multdiv: product/quotient of b^(en), n = 3-5
+        - twobase_multdiv: product/quotient of (b1)^(en) and (b2)^(en), n = 4-6
+
+        :param num_quest: The number of questions to be generated.
+        :param brange: The range used for bases, (begin, end) inclusive. Must contain something other than 0 and +-1.
+        :param erange: The range used for exponents (including radical index), (begin, end) inclusive.
+                       Must contain something other than 1.
+        :param types: The problem types to be chosen from. If omitted, all types will be allowed.
+        :param sqrt_only: If True, radical expressions will only use square roots regardless of erange.
+        """
+        if (brange[0] > brange[1]) or not set(range(brange[0], brange[1] + 1)) - {-1, 0, 1}:
+            raise ValueError("brange must contain a number other than 0 and 1. brange given: " + str(brange))
+        if (erange[0] > erange[1]) or (erange[0] == 1 and erange[1] == 1):
+            raise ValueError("erange must contain a number other than 1. erange given: " + str(erange))
+        possible_types = (
+            "simple_mult",
+            "simple_div",
+            "simple_exp",
+            "simple_dist",
+            "simple_root",
+            "multdiv",
+            "twobase_multdiv"
+        )
+        root_types = {
+            "simple_root"
+        }
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"the problem type {t} is not valid")
+        if not types:
+            types = possible_types
+        if not sqrt_only and not set(range(erange[0], erange[1] + 1)) - {0, 1}:
+            # remove root types
+            types = tuple(set(types) - root_types)
+        if not types:
+            raise ValueError("Only root problems chosen but erange contains nothing but 0 and/or 1")
+        super().__init__(num_quest, "0cm")
+        self.brange = brange
+        self.erange = erange
+        self.types = types
+        self.sqrt_only = sqrt_only
+
+
+    def get_problem(self) -> list[Math]:
+        def draw_b(wrap) -> Number:
+            b = randint(self.brange[0], self.brange[1])
+            while b in [0, 1, -1]:
+                b = randint(self.brange[0], self.brange[1])
+            return Number(b, wrap=wrap)
+        def draw_e(lower_bound=None, upper_bound=None, no_zero=False) -> int:
+            if lower_bound is None:
+                lower_bound = self.erange[0]
+            if upper_bound is None:
+                upper_bound = self.erange[1]
+            if lower_bound < self.erange[0] or upper_bound > self.erange[1]:
+                raise ValueError(f"draw_e bounds set outside erange: lower_bound={lower_bound}, upper_bound={upper_bound}, erange={self.erange}")
+            e = randint(lower_bound, upper_bound)
+            while e == 1 or (no_zero and e == 0):
+                e = randint(lower_bound, upper_bound)
+            return e
+
+        prob_type = choice(self.types)
+        result = []
+
+        match prob_type:
+            case "simple_mult":
+                b = draw_b(True)
+                e1 = draw_e()
+                e2 = draw_e()
+                result.extend([NoEscape(f"{b.dumps()}^{{{e1}}}"), Command("times"), NoEscape(f"{b.dumps()}^{{{e2}}}")])
+            case "simple_div":
+                b = draw_b(True)
+                e1 = draw_e()
+                e2 = draw_e(upper_bound=e1)   # make sure e1 >= e2
+                result.extend(UnsafeFraction(f"{b.dumps()}^{{{e1}}}", f"{b.dumps()}^{{{e2}}}").get_latex())
+            case "simple_exp":
+                b = draw_b(True)
+                e1 = draw_e()
+                e2 = draw_e()
+                result.extend([Command("left("), NoEscape(f"{b.dumps()}^{{{e1}}}"), Command("right)"), NoEscape(f"^{{{e2}}}")])
+            case "simple_dist":
+                b1 = draw_b(True)
+                b2 = draw_b(True)
+                e1 = draw_e()
+                e2 = draw_e()
+                e3 = draw_e()
+                result.extend([Command("left("), *b1.get_latex(), NoEscape(f"^{{{e1}}}"),
+                               Command("times"), *b2.get_latex(), NoEscape(f"^{{{e2}}}"),
+                               Command("right)"), NoEscape(f"^{{{e3}}}")])
+            case "simple_root":
+                b = draw_b(True)
+                e1 = draw_e()
+                e2 = 2 if (self.sqrt_only or self.erange[1] < 2) else draw_e(lower_bound=max(2, self.erange[0]), no_zero=True)
+                result.append(Command("sqrt", NoEscape(f"{b.dumps()}^{{{e1 * e2}}}"), e2 if e2 != 2 else None))
+            case "multdiv":
+                b = draw_b(True)
+                enum = [draw_e()]   # put at least one power in numerator
+                edenom = []
+                for _ in range(randint(2, 4)):
+                    if random() < 0.5:
+                        enum.append(draw_e())
+                    else:
+                        edenom.append(draw_e())
+                num = NoEscape(f"{b.dumps()}^{{{enum[0]}}}")
+                for e in enum[1:]:
+                    num += NoEscape(f" \\times {b.dumps()}^{{{e}}}")
+                if not edenom:
+                    result.append(num)
+                else:
+                    denom = NoEscape(f"{b.dumps()}^{{{edenom[0]}}}")
+                    for e in edenom[1:]:
+                        denom += NoEscape(f" \\times {b.dumps()}^{{{e}}}")
+                    result.extend(UnsafeFraction(num, denom).get_latex())
+            case "twobase_multdiv":
+                b1 = draw_b(True)
+                b2 = draw_b(True)
+                while self.brange[0] < self.brange[1] and b1 == b2:
+                    b2 = draw_b(True)
+                # choose exponents for each base
+                b1_e = [draw_e()]
+                b2_e = [draw_e()]
+                for _ in range(randint(2, 4)):
+                    if random() < 0.5:
+                        b1_e.append(draw_e())
+                    else:
+                        b2_e.append(draw_e())
+                # randomly assign exponents to numerator and denominator
+                indices = [(i, b1_e, b1) for i in range(len(b1_e))] + [(i, b2_e, b2) for i in range(len(b2_e))]
+                inum = []
+                idenom = []
+                while indices:
+                    j = randint(0, len(indices) - 1)
+                    if not inum or random() < 0.5:   # make sure numerator has at least one power
+                        inum.append(indices.pop(j))
+                    else:
+                        idenom.append(indices.pop(j))
+                # assemble the numerator text
+                num = NoEscape(f"{inum[0][2].dumps()}^{{{inum[0][1][inum[0][0]]}}}")
+                for i, be, b in inum[1:]:
+                    num += NoEscape(f" \\times {b.dumps()}^{{{be[i]}}}")
+                # assemble the denominator text
+                if not idenom:
+                    result.append(num)
+                else:
+                    denom = NoEscape(f"{idenom[0][2].dumps()}^{{{idenom[0][1][idenom[0][0]]}}}")
+                    for i, be, b in idenom[1:]:
+                        denom += NoEscape(f" \\times {b.dumps()}^{{{be[i]}}}")
+                    result.extend(UnsafeFraction(num, denom).get_latex())
+
+        result.append(NoEscape("="))
+
+        self.num_quest -= 1
+        return [Math(data=result, inline=True)]

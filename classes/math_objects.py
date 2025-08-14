@@ -2,6 +2,7 @@ from decimal import Decimal
 from abc import ABC, abstractmethod
 from random import shuffle
 from typing import Self
+import math
 
 from pylatex import Command, NoEscape
 from pylatex.base_classes import LatexObject
@@ -9,7 +10,7 @@ from pylatex.base_classes import LatexObject
 
 class BaseMathClass(ABC):
     @abstractmethod
-    def get_latex(self) -> list[LatexObject, NoEscape, int]:
+    def get_latex(self) -> list[LatexObject | NoEscape]:
         """
         Returns the LaTeX representation of the object in a list.
         """
@@ -29,7 +30,7 @@ class BaseMathClass(ABC):
 
 
 class TextWrapper(BaseMathClass):
-    def __init__(self, texts: list[str | NoEscape]=None):
+    def __init__(self, texts: list[str | NoEscape] | None = None):
         """
         A class to wrap raw texts into BaseMathClass.
         get_latex() returns the texts in NoEscape.
@@ -40,7 +41,7 @@ class TextWrapper(BaseMathClass):
             self.texts = [NoEscape(t) for t in texts]
 
     def get_latex(self) -> list[NoEscape]:
-        return self.texts
+        return self.texts.copy()
 
     def append(self, text: str | NoEscape):
         """
@@ -52,7 +53,7 @@ class TextWrapper(BaseMathClass):
 class BaseMathEntity(BaseMathClass, ABC):
     """
     This class must include the attribute sign and wrap,
-    as well as implementing __eq__() and __neg__.
+    as well as implementing __eq__() and __neg__().
     """
     def __init__(self, sign: int, wrap: bool):
         if sign != 1 and sign != -1:
@@ -85,7 +86,7 @@ class Fraction(BaseMathEntity):
         :param num: Numerator of the fraction.
         :param denom: Denominator of the fraction. Cannot be zero.
         :param sign: The sign of the fraction. 1 if positive, -1 if negative.
-        :param big: If True, get_command() will return a fraction in display mode (bigger text).
+        :param big: If True, get_latex() will return a fraction in display mode (bigger text).
         :param wrap: If True, the fraction will be surrounded by parentheses when it's negative.
                      Has no effect if the sign is positive.
         """
@@ -104,7 +105,7 @@ class Fraction(BaseMathEntity):
                         Command("dfrac" if self.big else "frac", [self.num, self.denom]),
                         Command("right)")]
             else:
-                return [NoEscape('-') if self.sign == -1 else NoEscape(),
+                return [NoEscape('-'),
                         Command('dfrac' if self.big else 'frac', [self.num, self.denom])]
         else:
             return [Command("dfrac" if self.big else "frac", [self.num, self.denom])]
@@ -112,7 +113,9 @@ class Fraction(BaseMathEntity):
     def __eq__(self, other) -> bool:
         """
         Checks if this fraction is equal to another.
+        Equivalent fractions are considered not equal.
         For example, 4/5 is equal to 4/5, but 4/5 is not equal to 8/9 or 8/10.
+        Also, -(-1/2) is not equal to 1/2.
         This ignores the attribute big.
 
         :return: True if the two are the same fraction, false otherwise.
@@ -122,18 +125,28 @@ class Fraction(BaseMathEntity):
         return self.num == other.num and self.denom == other.denom and self.sign == other.sign
 
     def __neg__(self):
-        return Fraction(self.num, self.denom, -self.sign, self.big)
+        return Fraction(self.num, self.denom, -self.sign, self.big, self.wrap)
 
     def __mul__(self, other):
-        if isinstance(other, int):
-            return Fraction(self.num * other, self.denom, self.sign, self.big)
-        elif isinstance(other, Number) and other.is_int():
-            return Fraction(int(self.num * other.mag), self.denom, self.sign * other.sign, self.big)
+        if isinstance(other, Number):
+            if other.is_int():
+                return Fraction(int(self.num * other.mag), self.denom, self.sign * other.sign, self.big, self.wrap)
+            else:
+                return TypeError("Only an integer value can be multiplied to a Fraction, the value was " + str(other))
         elif isinstance(other, Fraction):
-            return Fraction(self.num * other.num, self.denom * other.denom, self.sign * other.sign, self.big or other.big)
+            return Fraction(self.num * other.num, self.denom * other.denom, self.sign * other.sign, self.big or other.big, self.wrap or other.wrap)
         else:
-            raise TypeError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
+            return NotImplemented
 
+    def simplified(self) -> "Fraction":
+        """
+        Returns the simplified fraction as a new instance.
+
+        :returns: The simplified fraction.
+        """
+        sign = (self.sign * self.num * self.denom) // abs(self.num * self.denom)
+        d = math.gcd(self.num, self.denom)
+        return Fraction(abs(self.num // d), abs(self.denom // d), sign=sign, big=self.big, wrap=self.wrap)
 
 type NumberArgument = int | float | Decimal | str | Number
 
@@ -142,17 +155,23 @@ class Number(BaseMathEntity):
     def __init__(self, num: NumberArgument, wrap=False):
         """
         An integer or a decimal number.
+        Passing in a Number gives a new instance with the same value,
+        where wrap is inherited unless True is passed in.
 
         :param num: The number to be represented.
                     For a decimal number, you can enter it as a string to avoid float rounding error.
         :param wrap: If True, the number will be surrounded by parentheses when it's negative.
                      Has no effect if the sign is positive.
+                     If num was a Number, True overrides wrap and False inherits it from num.
         """
-        if type(num) == Number:
-            super().__init__(num.sign, wrap)
+        if isinstance(num, Number):
+            super().__init__(num.sign, num.wrap or wrap)
             self.mag: Decimal = num.mag
         else:
-            num = Decimal(num)
+            try:
+                num = Decimal(num)
+            except Exception:
+                raise TypeError(f"{num} could not be converted to Decimal")
             sign = 1
             if num < 0:
                 sign = -1
@@ -188,6 +207,9 @@ class Number(BaseMathEntity):
     def __str__(self):
         return str(self.get_signed())
 
+    def __repr__(self):
+        return f"Number('{self.get_signed()}', wrap={self.wrap})"
+
     def __eq__(self, other):
         if not isinstance(other, Number):
             return self.get_signed() == other
@@ -205,7 +227,9 @@ class Number(BaseMathEntity):
         elif isinstance(other, Fraction):
             return other * self
         else:
-            raise TypeError(f"Multiplication between {type(self).__name__} and {type(other).__name__} is undefined")
+            return NotImplemented
+
+    __rmul__ = __mul__
 
     def __int__(self):
         return int(self.get_signed())
@@ -223,7 +247,9 @@ class Number(BaseMathEntity):
             try:
                 return self + Number(other)
             except (ValueError, TypeError):
-                raise TypeError(f"Addition between Number and {type(other).__name__} is not defined")
+                return NotImplemented
+
+    __radd__ = __add__
 
     def __sub__(self, other):
         if isinstance(other, Number):
@@ -232,7 +258,7 @@ class Number(BaseMathEntity):
             try:
                 return self - Number(other)
             except (ValueError, TypeError):
-                raise TypeError(f"Subtraction between Number and {type(other).__name__} is not defined")
+                return NotImplemented
 
     def __lt__(self, other):
         if isinstance(other, Number):
@@ -241,7 +267,7 @@ class Number(BaseMathEntity):
             try:
                 return self < Number(other)
             except (ValueError, TypeError):
-                raise TypeError(f"Number and {type(other).__name__} are not comparable")
+                return NotImplemented
 
     def __le__(self, other):
         return self < other or self == other
@@ -254,22 +280,27 @@ class Number(BaseMathEntity):
 
 
 class MultiVariableTerm(BaseMathEntity):
-    def __init__(self, coefficient: NumberArgument, *variables: tuple[str, NumberArgument]):
+    def __init__(self, coefficient: NumberArgument, *variables: tuple[str, NumberArgument], hide_zero_exponent=False):
         """
         A term of a polynomial with a numerical coefficient and variables raised to a numerical power.
         The stored coefficient will become positive if the input coefficient was negative.
 
-        :param coefficient: The coefficient of the polynomial. Use string for any non-integer values.
+        :param coefficient: The coefficient of the polynomial.
+                            You may use string to avoid floating point conversion error.
         :param variables: The variables raised to a numerical power. The first element should be the variable
-                          and the second should be the exponent. Use string for any non-integer exponent.
+                          and the second should be the exponent.
+                          You may string for exponent to avoid floating point conversion error.
+        :param hide_zero_exponent: If True, the variables with exponent 0 are not shown in get_latex().
+                                   When two terms are multiplied, this becomes False unless both were True originally.
         """
         self.coefficient = Number(coefficient)
         super().__init__(self.coefficient.sign, False)
         self.coefficient.sign = 1
-        self.variables = [(var[0], Number(var[1])) for var in variables if var[1] != 0]
+        self.variables = [(var[0], Number(var[1])) for var in variables]
+        self.hide_zero_exponent = hide_zero_exponent
 
     def get_signed_coefficient(self) -> Number:
-        return self.coefficient * self.sign
+        return self.sign * self.coefficient
 
     def __eq__(self, other):
         if not isinstance(other, MultiVariableTerm):
@@ -289,64 +320,85 @@ class MultiVariableTerm(BaseMathEntity):
             return True
 
     def __neg__(self):
-        return MultiVariableTerm(-self.get_signed_coefficient(), *self.variables)
+        return MultiVariableTerm(-self.get_signed_coefficient(), *self.variables, hide_zero_exponent=self.hide_zero_exponent)
 
     def __mul__(self, other):
         if isinstance(other, MultiVariableTerm):
             variables = self.variables.copy()
+            all_variables = [v[0] for v in variables]
             for var, exp in other.variables:
-                all_variables = [v[0] for v in variables]
                 if var not in all_variables:
-                    variables.append((var, exp))
+                    variables.append((var, Number(exp)))
+                    all_variables.append(var)
                 else:
                     i = all_variables.index(var)
                     variables[i] = (var, variables[i][1] + exp)
             return MultiVariableTerm(self.get_signed_coefficient() * other.get_signed_coefficient(),
-                                     *variables)
+                                     *variables,
+                                     hide_zero_exponent=self.hide_zero_exponent and other.hide_zero_exponent)
         elif isinstance(other, MultiVariablePolynomial):
             return other * self
         elif type(other) in (int, float, Decimal, Number):
-            return MultiVariableTerm(self.get_signed_coefficient() * other, *self.variables)
+            return MultiVariableTerm(self.get_signed_coefficient() * other,
+                                     *self.variables,
+                                     hide_zero_exponent=self.hide_zero_exponent)
         else:
-            raise TypeError(f"Multiplication between MultiVariableTerm and {type(other).__name__} is undefined")
+            return NotImplemented
+
+    __rmul__ = __mul__
 
     def get_latex(self) -> list[NoEscape]:
-        if self.coefficient == 1 and len(self.variables) == 0:
-            if self.sign == 1:
-                return [NoEscape("1")]
-            else:
-                return [NoEscape("-1")]
-
         result = []
         if self.get_signed_coefficient() == -1:
             result.append(NoEscape("-"))
         elif self.coefficient != 1:
             result.append(self.get_signed_coefficient().dumps())
+        no_variable = True
         for var, exp in self.variables:
-            if exp != 1:
+            if exp == 0 and self.hide_zero_exponent:
+                continue
+            elif exp != 1:
                 result.append(NoEscape(f"{var}^{{{exp.dumps()}}}"))
             else:
                 result.append(NoEscape(var))
+            no_variable = False
+        if no_variable and self.coefficient == 1:
+            # coefficient is +-1 and no variables to display
+            result.append(NoEscape("1"))
 
         return result
 
+    def remove_ones(self) -> Self:
+        """
+        Removes the variables with exponent 0.
+
+        :returns: Self for chained method calls
+        """
+        i = 0
+        while i < len(self.variables):
+            if self.variables[i][1] == 0:
+                self.variables.pop(i)
+                i -= 1  # adjust index
+            i += 1
+        return self
+
 
 class MultiVariablePolynomial(BaseMathClass):
-    def __init__(self, terms: list[MultiVariableTerm], mix=False):
+    def __init__(self, terms: list[MultiVariableTerm], mix=False, wrap=False):
         """
-        A polynomial with integer coefficients and one variable.
-        The input data can be a list of dictionaries,
-        where each dictionary represents a term in the polynomial.
+        A polynomial with numerical coefficients and multiple variables raised to numerical powers.
 
         :param terms: The terms of the polynomial.
         :param mix: If True, the terms will be shuffled upon initialization.
+        :param wrap: If True, get_latex will return the polynomial enclosed in parentheses.
         """
         self.terms = terms.copy()
         if mix:
             self.mix()
+        self.wrap = wrap
 
     def __mul__(self, other):
-        if isinstance(other, MultiVariableTerm):
+        if isinstance(other, MultiVariableTerm) or type(other) in (int, float, Decimal, Number):
             terms = self.terms.copy()
             for i in range(len(terms)):
                 terms[i] = terms[i] * other
@@ -358,17 +410,26 @@ class MultiVariablePolynomial(BaseMathClass):
                     terms.append(mine * others)
             return MultiVariablePolynomial(terms)
         else:
-            raise TypeError(f"Multiplication between MultiVariablePolynomial and {type(other).__name__} is undefined")
+            return NotImplemented
 
-    def get_latex(self) -> list[NoEscape]:
+    __rmul__ = __mul__
+
+    def get_latex(self) -> list[Command | NoEscape]:
+        result = []
+        if self.wrap:
+            result.append(Command("left("))
+
         # first iteration
-        result = [self.terms[0].dumps()]
+        result.append(self.terms[0].dumps())
 
         # later iterations
         for term in self.terms[1:]:
             if term.sign == 1:
                 result.append(NoEscape("+"))
             result.append(term.dumps())
+
+        if self.wrap:
+            result.append(Command("right)"))
 
         return result
 
@@ -427,15 +488,14 @@ class MultiVariablePolynomial(BaseMathClass):
 class Term(MultiVariableTerm):
     def __init__(self, variable: str, coefficient: NumberArgument, exponent: int):
         """
-        A term of a polynomial with a numerical coefficient with one variable.
+        A term of a polynomial with a numerical coefficient with one variable raised to an integer power.
         The stored coefficient will always be non-negative.
 
         :param variable: The variable to be used.
         :param coefficient: The coefficient of the polynomial. Use string for any non-integer values.
-        :param exponent: The exponent of this term.
+        :param exponent: The exponent of this term. Use 0 to represent a constant term.
         """
-        super().__init__(coefficient, (variable, exponent))
-        self.variable = variable
+        super().__init__(coefficient, (variable, exponent), hide_zero_exponent=True)
 
     @staticmethod
     def from_dict(var: str, dic: dict[str, NumberArgument]) -> "Term":
@@ -443,11 +503,11 @@ class Term(MultiVariableTerm):
         Initialize Term from a dictionary.
 
         Each dictionary must be in the following structure:
-        {'coefficient': coefficient value, int,
-         'exponent': exponent of the variable, int}
+        {'coefficient': coefficient value; NumberArgument,
+         'exponent': exponent of the variable; int}
 
         For example, the term -4x^3 is represented by the dictionary:
-        {'coefficient': -4
+        {'coefficient': -4,
          'exponent': 3
         }
 
@@ -458,29 +518,69 @@ class Term(MultiVariableTerm):
         """
         return Term(var, dic["coefficient"], dic["exponent"])
 
+    @staticmethod
+    def singlify(term: MultiVariableTerm) -> "Term":
+        """
+        Returns a copy of the MultiVariableTerm instance as Term.
+        The term must have exactly one variable with integer exponent.
+        """
+        if len(term.variables) != 1:
+            raise ValueError("The term doesn't have one variable, variables: " + str(term.variables))
+        if not term.variables[0][1].is_int():
+            raise ValueError("The term variable is raised to a non-integer exponent, exponent: " + str(term.variables[0][1]))
+        return Term(term.variables[0][0], Number(term.get_signed_coefficient()), int(term.variables[0][1]))
+
+    def __mul__(self, other):
+        if ((isinstance(other, Term) and other.get_variable() == self.get_variable()) or
+            type(other) in (int, float, Decimal, Number)):
+            return Term.singlify(super().__mul__(other))
+        else:
+            return super().__mul__(other)
+
+    def get_variable(self) -> str:
+        """
+        Returns the variable the term uses.
+        """
+        return self.variables[0][0]
+
+    def get_exponent(self) -> Number:
+        """
+        Returns the exponent of the variable in the term.
+        """
+        return Number(self.variables[0][1])
+
+    def change_variable(self, new_var: str) -> Self:
+        """
+        Changes the variable used in this term.
+
+        :returns: The object instance for chained method calls.
+        """
+        self.variables = [(new_var, self.variables[0][1])]
+        return self
+
 
 class SingleVariablePolynomial(MultiVariablePolynomial):
-    def __init__(self, variable: str, data: list[dict[str, int] | Term], mix=False):
+    def __init__(self, variable: str, data: list[dict[str, NumberArgument] | Term], mix=False, wrap=False):
         """
-        A polynomial with integer coefficients and one variable.
+        A polynomial with numerical coefficients and one variable raised to an integer power.
         The input data can be a list of dictionaries,
         where each dictionary represents a term in the polynomial.
 
         Each dictionary must be in the following structure:
-        {'coefficient': coefficient value, int,
-         'exponent': exponent of the variable, int}
+        {'coefficient': coefficient value; NumberArgument,
+         'exponent': exponent of the variable; int}
 
         For example, the term -4x^3 is represented by the dictionary:
-        {'coefficient': -4
-         'exponent': 3
-        }
+        {'coefficient': -4,
+         'exponent': 3}
 
         For a constant term, the exponent must be 0 and the coefficient must record the value of the constant.
 
         Each term is assumed to be added. That is, the polynomial 4x - 2 is
         uniquely identified by the data:
 
-        [{'coefficient': 4,
+        [
+         {'coefficient': 4,
           'exponent': 1},
          {'coefficient': -2,
           'exponent': 0}
@@ -489,32 +589,81 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
         :param variable: The variable to be used.
         :param data: The list of data as explained above, or as a Term object.
         :param mix: If True, the terms will be shuffled upon initialization.
+        :param wrap: If True, get_latex will return the polynomial enclosed in parentheses.
         """
         self.variable = variable
         terms = []
-        self.degree: int = float('-inf')
+        degree = float('-inf')
         for t in data:
             if isinstance(t, Term):
-                if self.variable != t.variable:
+                if self.variable != t.get_variable():
                     raise ValueError("Polynomial variable doesn't agree with term variable")
-                if not t.variables[0][1].is_int():
+                if not t.get_exponent().is_int():
                     raise ValueError("Exponent must be integer for SingleVariablePolynomial")
                 terms.append(t)
             else:
-                if t["exponent"] % 1 != 0:
+                if not Number(t["exponent"]).is_int():
                     raise ValueError("Exponent must be integer for SingleVariablePolynomial")
                 terms.append(Term.from_dict(variable, t))
             if terms[-1].variables:
-                self.degree = max(self.degree, int(terms[-1].variables[0][1]))
-        super().__init__(terms, mix)
+                degree = max(degree, int(terms[-1].get_exponent()))
+        self.degree = degree if isinstance(degree, int) else 0
+        super().__init__(terms, mix, wrap)
 
-    def append(self, term):
+    @staticmethod
+    def singlify(poly: MultiVariablePolynomial) -> "SingleVariablePolynomial":
+        """
+        Returns a copy of the MultiVariablePolynomial instance as SingleVariablePolynomial.
+        The polynomial must have at least one term.
+        The polynomial must use exactly one variable with integer exponents.
+        """
+        if len(poly.terms) == 0:
+            raise ValueError("The polynomial has no terms")
+        terms = []
+        for t in poly.terms:
+            s = Term.singlify(t)
+            if not terms or s.get_variable() == terms[-1].get_variable():
+                terms.append(s)
+            else:
+                raise ValueError(f"Different variables seen: {s.get_variable()} and {terms[-1].get_variable()}")
+        return SingleVariablePolynomial(terms[0].get_variable(), terms, wrap=poly.wrap)
+
+    def __mul__(self, other):
+        if ((isinstance(other, SingleVariablePolynomial) and self.variable == other.variable) or
+            (isinstance(other, Term) and self.variable == other.get_variable()) or
+            type(other) in (int, float, Decimal, Number)
+        ):
+            return SingleVariablePolynomial.singlify(super().__mul__(other))
+        else:
+            return super().__mul__(other)
+
+    __rmul__ = __mul__
+
+    def append(self, term: Term):
+        """
+        Adds the term to the end of the polynomial.
+        The term must have the same variable as this polynomial.
+        """
+        if term.get_variable() != self.variable:
+            raise ValueError("Term with different variable appended to SingleVariablePolynomial")
         super().append(term)
         if term.variables:
-            self.degree = max(self.degree, int(term.variables[0][1]))
-        elif self.degree == float('-inf'):
-            self.degree = 0
+            self.degree = max(self.degree, int(term.get_exponent()))
 
+    def change_variable(self, new_var: str) -> Self:
+        """
+        Changes the variable used in this polynomial.
+
+        :returns: The object instance for chained method calls.
+        """
+        self.variable = new_var
+        for i in range(len(self.terms)):
+            old_term = self.terms[i]
+            if isinstance(old_term, Term):
+                self.terms[i] = Term(new_var, old_term.get_signed_coefficient(), int(old_term.get_exponent()))
+            else:
+                raise ValueError("SingleVariablePolynomial contained a MultiVariableTerm, not Term")
+        return self
 
 class PolynomialFraction(BaseMathClass):
     def __init__(self, num: SingleVariablePolynomial, denom: SingleVariablePolynomial, sign=1, wrap=False):
@@ -538,16 +687,47 @@ class PolynomialFraction(BaseMathClass):
         self.wrap = wrap
 
     def get_latex(self) -> list[Command | NoEscape]:
-        num_text = self.num.dumps()
-        denom_text = self.denom.dumps()
-        result = [Command('dfrac', [num_text, denom_text])]
-        if self.sign == -1:
-            result.insert(0, NoEscape('-'))
+        result = []
         if self.wrap:
-            result.insert(0, Command('left('))
+            result.append(Command('left('))
+        if self.sign == -1:
+            result.append(NoEscape('-'))
+        result.append(Command('dfrac', [self.num.dumps(), self.denom.dumps()]))
+        if self.wrap:
             result.append(Command('right)'))
         return result
 
+
+class UnsafeFraction(BaseMathClass):
+    def __init__(self,
+                 num: str | NumberArgument | BaseMathClass,
+                 denom: str | NumberArgument | BaseMathClass,
+                 big=False):
+        """
+        A fraction with arbitrary numerator and denominator.
+        If str is given as an argument, it will be converted to NoEscape.
+
+        :param num: The numerator of the fraction.
+        :param denom: The denominator of the fraction.
+        :param big: If True, get_latex() will return a fraction in display mode (bigger text).
+        """
+        def convert(o, name: str) -> BaseMathClass:
+            if isinstance(o, str):
+                return TextWrapper([o])
+            elif isinstance(o, BaseMathClass):
+                return o
+            else:
+                try:
+                    return Number(o)
+                except TypeError:
+                    raise ValueError(f"argument {name} with value {o} cannot be converted to BaseMathClass")
+
+        self.num = convert(num, "num")
+        self.denom = convert(denom, "denom")
+        self.big = big
+
+    def get_latex(self) -> list[Command]:
+        return [Command("dfrac" if self.big else "frac", [self.num.dumps(), self.denom.dumps()])]
 
 class UnsafePolynomial(BaseMathClass):
     def __init__(self, *terms: str | BaseMathClass, mix=False):
@@ -561,6 +741,7 @@ class UnsafePolynomial(BaseMathClass):
 
         Each term will be represented as a dictionary with keys 'sign' and 'value'.
         'sign' will be either 1 or -1. 'value' will be negative if the original term was negative.
+        'value' is always stored as a NoEscape instance.
 
         :param terms: The terms for the polynomial.
         :param mix: If True, the order of the terms will be shuffled.

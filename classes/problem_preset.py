@@ -1,5 +1,14 @@
 import classes.problems as problems
 
+from pylatex import NoEscape
+
+
+variables = ("x", "y", "z", "m", "n", "k", "r")
+equation_instruction = NoEscape("Solve the following equations. Verify your solution.")
+inequality_instruction = NoEscape("Solve the following inequalities. Verify your solution both at and beyond the bound.")
+polynomial_instruction = NoEscape("Simplify the following polynomials as much as possible.")
+graphing_instruction = NoEscape("Sketch a graph of $y = f(x)$ for the following relations.")
+
 
 class RectangleAreaProblem(problems.WordProblem):
     def __init__(self, num_quest: int):
