@@ -3,12 +3,15 @@ from decimal import Decimal
 from abc import ABC, abstractmethod
 
 from typing import Callable
-from pylatex import Math, Command, Tabular, MiniPage, Document, VerticalSpace, StandAloneGraphic, TikZ, Axis, Plot
+from pylatex import Math, Command, Tabular, MiniPage, Document, VerticalSpace, StandAloneGraphic, TikZ, Axis, Plot, \
+    TikZDraw, TikZCoordinate
 from pylatex.base_classes import Environment, CommandBase
 from pylatex.utils import NoEscape
 import math
 import numpy as np
 import sympy as sp
+import os  # remove later
+from pathlib import Path   # remove later
 
 from classes.math_objects import *
 
@@ -2252,13 +2255,25 @@ class ExponentRulePractice(ProblemBase):
 
 
 class TrigonometryProblem(ProblemBase):
-    def __init__(self, num_quest: int, lrange: tuple[NumberArgument, NumberArgument], arange: tuple[int, int], units=('cm',), precision=1):
+    def __init__(self, num_quest: int, lrange: tuple[NumberArgument, NumberArgument], arange: tuple[int, int], *types: str, units=('cm',), precision=1):
         """
         Initializes a problem where right triangles are solved using trigonometric ratios.
 
+        Possible problem types:
+        - angle_sin: find the missing angle using sin
+        - angle_cos: find the missing angle using cos
+        - angle_tan: find the missing angle using tan
+        - side_sin: find the missing non-hypotenuse leg using sin
+        - hyp_sin: find the hypotenuse using sin
+        - side_cos: find the missing non-hypotenuse leg using cos
+        - hyp_cos: find the hypotenuse using cos
+        - side_tan: find the missing leg using tan
+'
         :param num_quest: The number of questions to be generated.
         :param lrange: The range used for the lengths in the triangle, (begin, end) inclusive.
         :param arange: The range used for the known angle (in degrees) in the triangle, (begin, end) inclusive.
+        :param types: The problem types to be used. One will be drawn from this for each question.
+                      If omitted, all types will be available.
         :param units: The units of length to be used. One problem will only use one unit.
         :param precision: The precision of the lengths. 0 means whole number, 1 means first decimal place, etc.
         """
@@ -2272,23 +2287,117 @@ class TrigonometryProblem(ProblemBase):
         if precision < 0:
             raise ValueError(f"precision cannot be negative, was given {precision}")
 
+        possible_types = (
+            'angle_sin',
+            'angle_cos',
+            'angle_tan',
+            'side_sin',
+            'hyp_sin',
+            'side_cos',
+            'hyp_cos',
+            'side_tan'
+        )
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"problem type {t} is not valid")
+        if not types:
+            types = possible_types
+
         super().__init__(num_quest, "0cm")
         self.lrange = lrange
         self.arange = arange
         self.units = units
         self.precision = precision
+        self.types = types
 
     def get_problem(self) -> list[DocInjector]:
-        def lengths_to_vertices(a: Number, b: Number, c: Number, orientation=0) -> tuple[float, float, float]:
+        def lengths_to_vertices(a: float, b: float, c: float, orientation: int) -> tuple[tuple[float, float], tuple[float, float], tuple[float, float]]:
             """
-            :param a: The length of one side making up the right angle.
-            :param b: The length of another side making up the right angle.
+            :param a: The length of the horizontal leg.
+            :param b: The length of the vertical leg.
             :param c: The length of the hypotenuse.
             :param orientation: Determines the orientation of the triangle.
                                 1, 2, 3, and 4 corresponds to the right angle being at the
-                                top-left, top-right, bottom-left, and bottom-right, recpectively.
-                                If set to anything other than those, one will be randomly chosen.
-            :return: The coordinates of the vertices of the triangle.
+                                top-left, top-right, bottom-left, and bottom-right, respectively.
+            :return: The coordinates of the vertices of the triangle, ordered A, B, C (opposite to a, b, c).
             """
-            pass   # stub for now
-        pass   # stub for now
+            if orientation not in [1, 2, 3, 4]:
+                raise ValueError(f"triangle orientation {orientation} is invalid")
+            if abs(a**2 + b**2 - c**2) > 10**(-self.precision - 1):
+                raise ValueError(f"lengths must form a right triangle, the third argument being the hypotenuse")
+
+            match orientation:
+                case 1:
+                    A = (0, 0)
+                    B = (a, b)
+                    C = (b, 0)
+                case 2:
+                    A = (a, 0)
+                    B = (0, b)
+                    C = (a, b)
+                case 3:
+                    A = (0, b)
+                    B = (a, 0)
+                    C = (0, 0)
+                case 4:
+                    A = (a, b)
+                    B = (0, 0)
+                    C = (a, 0)
+
+            return A, B, C
+
+        def order_for_inside_angle(p, v, q):
+            """
+            Reorder coordinates so that TikZ draws internal angle.
+            v is the vertex where the angle is at.
+            """
+            px, py = p[0] - v[0], p[1] - v[1]
+            qx, qy = q[0] - v[0], q[1] - v[1]
+            cross = px * qy - py * qx
+            if cross < 0:
+                return q, v, p
+            else:
+                return p, v, q
+
+        a = 4
+        b = 4
+        c = math.sqrt(a**2 + b**2)
+        def draw_triangle(doc: Document):
+            # Triangle vertices
+            A, B, C = lengths_to_vertices(a, b, c, 4)
+            vertex_name = {A: "A", B: "B", C: "C"}
+
+            with doc.create(TikZ()) as tikz:
+                # Name vertex coordinates
+                tikz.append(NoEscape(rf'\coordinate (A) at {A};'))
+                tikz.append(NoEscape(rf'\coordinate (B) at {B};'))
+                tikz.append(NoEscape(rf'\coordinate (C) at {C};'))
+
+                # Triangle outline
+                tikz.append(TikZDraw([A, '--', B, '--', C, '--', A]))
+
+                # Label vertices
+                tikz.append(NoEscape(r'\node[above] at (A) {$A$};'))
+                tikz.append(NoEscape(r'\node[left] at (B) {$B$};'))
+                tikz.append(NoEscape(r'\node[right] at (C) {$C$};'))
+
+                # Right angle at B (between points A-B-C)
+                tikz.append(NoEscape(r'\path pic["", draw=black, angle radius=4mm]{right angle=A--C--B};'))
+
+                # Angle at A
+                order = [vertex_name[v] for v in order_for_inside_angle(C, A, B)]
+                tikz.append(NoEscape(r'\path pic["", draw=black, angle radius=4mm]{{angle={}--{}--{}}};'.format(*order)))
+
+                # Side length labels
+                tikz.append(NoEscape(r'\draw ($(A)!0.5!(B)$) node[above left] {$c$};'))
+                tikz.append(NoEscape(r'\draw ($(B)!0.5!(C)$) node[below] {$a$};'))
+                tikz.append(NoEscape(r'\draw ($(C)!0.5!(A)$) node[right] {$b$};'))
+
+        return [DocInjector(draw_triangle)]
+
+
+doc = Document()
+doc.preamble.append(NoEscape(r'\usetikzlibrary{angles,quotes,calc}'))
+prob = TrigonometryProblem(1, (1, 5), (10, 40))
+prob.get_problem()[0].inject(doc)
+doc.generate_tex(os.path.join(Path(__file__).parent.parent, "document_output", "Test"))
