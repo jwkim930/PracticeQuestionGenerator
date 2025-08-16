@@ -11,10 +11,10 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.LinearGraphingProblem(10, (-5, 5))]
+    [problems.TrigonometryProblem(50, (5, 10))]
 ]
-prob_names = ["Linear Graphing"]
-prob_insts = [preset.graphing_instruction]
+prob_names = ["Trigonometry"]
+prob_insts = [preset.trig_instruction]
 prob_cols = [1]
 # If mix_up is True, questions are generated in mixed order for that section.
 mix_up = [False]
@@ -28,6 +28,7 @@ doc = Document(geometry_options={"paper": "letterpaper", "margin": "0.8in"})
 doc.packages.append(Package("graphicx"))
 if nsec == 1:
     title = prob_names[0] + " Practice"
+doc.preamble.append(Command("usetikzlibrary", "angles,quotes,calc"))
 doc.preamble.append(Command("title", title))
 doc.preamble.append(Command("date", ""))
 doc.append(Command("maketitle"))

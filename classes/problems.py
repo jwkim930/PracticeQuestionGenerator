@@ -2278,7 +2278,7 @@ class TrigonometryProblem(ProblemBase):
             else:
                 return Number(Decimal(math.ceil(enlarged)) / (10 ** precision))
 
-    def __init__(self, num_quest: int, lrange: tuple[NumberArgument, NumberArgument], arange: tuple[int, int] = (10, 80), *types: str, units=('cm',), precision=1):
+    def __init__(self, num_quest: int, lrange: tuple[NumberArgument, NumberArgument], *types: str, arange: tuple[int, int] = (10, 80), units=('cm',), precision=1):
         """
         Initializes a problem where right triangles are solved using trigonometric ratios.
 
@@ -2294,11 +2294,11 @@ class TrigonometryProblem(ProblemBase):
 
         :param num_quest: The number of questions to be generated.
         :param lrange: The range used for the lengths in the triangle, (begin, end) inclusive.
+        :param types: The problem types to be used. One will be drawn from this for each question.
+                      If omitted, all types will be available.
         :param arange: The range used for the known angle (in degrees) in the triangle, (begin, end) inclusive.
                        The widest range is (10, 80) (default value). If any of the bounds go beyond these,
                        they will be shrunken down to fit within this range.
-        :param types: The problem types to be used. One will be drawn from this for each question.
-                      If omitted, all types will be available.
         :param units: The units of length to be used. One problem will only use one unit.
         :param precision: The precision of the lengths. 0 means whole number, 1 means first decimal place, etc.
         """
@@ -2363,23 +2363,28 @@ class TrigonometryProblem(ProblemBase):
             if orientation not in [1, 2, 3, 4]:
                 raise ValueError(f"triangle orientation {orientation} is invalid")
 
+            # scale the lengths so that longest non-hypotenuse is 4
+            factor = 4 / (b if a < b else a).get_signed()
+            a_scaled = TrigonometryProblem.round_to(a * factor, self.precision)
+            b_scaled = TrigonometryProblem.round_to(b * factor, self.precision)
+            c_scaled = TrigonometryProblem.round_to(c * factor, self.precision)
             match orientation:
                 case 1:
                     A = (Number(0), Number(0))
-                    B = (a, b)
-                    C = (Number(0), b)
+                    B = (a_scaled, b_scaled)
+                    C = (Number(0), b_scaled)
                 case 2:
-                    A = (a, Number(0))
-                    B = (Number(0), b)
-                    C = (a, b)
+                    A = (a_scaled, Number(0))
+                    B = (Number(0), b_scaled)
+                    C = (a_scaled, b_scaled)
                 case 3:
-                    A = (Number(0), b)
-                    B = (a, Number(0))
+                    A = (Number(0), b_scaled)
+                    B = (a_scaled, Number(0))
                     C = (Number(0), Number(0))
                 case 4:
-                    A = (a, b)
+                    A = (a_scaled, b_scaled)
                     B = (Number(0), Number(0))
-                    C = (a, Number(0))
+                    C = (a_scaled, Number(0))
 
             return A, B, C
 
@@ -2480,24 +2485,67 @@ class TrigonometryProblem(ProblemBase):
                 tikz.append(NoEscape(rf'\node[{vertex_label_placements[2]}] at (C) {{$C$}};'))
 
                 # Right angle at C
-                tikz.append(NoEscape(r'\path pic["", draw=black, angle radius=4mm]{right angle=A--C--B};'))
+                tikz.append(NoEscape(r'\path pic["", draw=black, angle radius=3mm]{right angle=A--C--B};'))
 
                 # Angle at the angle
                 the_angle = vertex_name_reverse[angle_name]
                 other1, other2 = tuple([ngle for ngle in [A, B, C] if ngle is not the_angle])
                 order = [vertex_name[v] for v in order_for_inside_angle(other1, the_angle, other2)]
-                tikz.append(NoEscape(r'\path pic["${}^\circ$", draw=black, angle radius=4mm]{{angle={}--{}--{}}};'.format(angle, *order)))
+                angle_text = "?" if prob_type in ['angle_sin', 'angle_cos', 'angle_tan'] else rf"{angle}^\circ"
+                tikz.append(NoEscape(r'\path pic["${}$", draw=black, angle radius=6mm, angle eccentricity=1.5]{{angle={}--{}--{}}};'.format(angle_text, *order)))
 
                 # Side length labels
-                tikz.append(NoEscape(rf'\draw ($(B)!0.5!(C)$) node[{side_label_placements[0]}] {{${a}$ {unit}}};'))
-                tikz.append(NoEscape(rf'\draw ($(C)!0.5!(A)$) node[{side_label_placements[1]}] {{${b}$ {unit}}};'))
-                tikz.append(NoEscape(rf'\draw ($(A)!0.5!(B)$) node[{side_label_placements[2]}] {{${c}$ {unit}}};'))
+                a_text = f"${a}$ {unit}"
+                b_text = f"${b}$ {unit}"
+                c_text = f"${c}$ {unit}"
+                match prob_type:
+                    case "angle_sin":
+                        if angle_name == "A":
+                            b_text = ""
+                        else:
+                            a_text = ""
+                    case "angle_cos":
+                        if angle_name == "A":
+                            a_text = ""
+                        else:
+                            b_text = ""
+                    case "angle_tan":
+                        c_text = ""
+                    case "side_sin":
+                        if angle_name == "A":
+                            a_text = "?"
+                            b_text = ""
+                        else:
+                            a_text = ""
+                            b_text = "?"
+                    case "hyp_sin":
+                        c_text = "?"
+                        if angle_name == "A":
+                            b_text = ""
+                        else:
+                            a_text = ""
+                    case "side_cos":
+                        if angle_name == "A":
+                            a_text = ""
+                            b_text = "?"
+                        else:
+                            a_text = "?"
+                            b_text = ""
+                    case "hyp_cos":
+                        c_text = "?"
+                        if angle_name == "A":
+                            a_text = ""
+                        else:
+                            b_text = ""
+                    case "side_tan":
+                        c_text = ""
+                        if random() < 0.5:
+                            a_text = "?"
+                        else:
+                            b_text = "?"
+                tikz.append(NoEscape(rf'\draw ($(B)!0.5!(C)$) node[{side_label_placements[0]}] {{{a_text}}};'))
+                tikz.append(NoEscape(rf'\draw ($(C)!0.5!(A)$) node[{side_label_placements[1]}] {{{b_text}}};'))
+                tikz.append(NoEscape(rf'\draw ($(A)!0.5!(B)$) node[{side_label_placements[2]}] {{{c_text}}};'))
 
+        self.num_quest -= 1
         return [DocInjector(draw_triangle)]
-
-
-doc = Document()
-doc.preamble.append(NoEscape(r'\usetikzlibrary{angles,quotes,calc}'))
-prob = TrigonometryProblem(1, (1, 5), (10, 40), 'angle_sin')
-prob.get_problem()[0].inject(doc)
-doc.generate_tex(os.path.join(Path(__file__).parent.parent, "document_output", "Test"))
