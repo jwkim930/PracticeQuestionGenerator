@@ -8,6 +8,7 @@ equation_instruction = NoEscape("Solve the following equations. Verify your solu
 inequality_instruction = NoEscape("Solve the following inequalities. Verify your solution both at and beyond the bound.")
 polynomial_instruction = NoEscape("Simplify the following polynomials as much as possible.")
 graphing_instruction = NoEscape("Sketch a graph of $y = f(x)$ for the following relations.")
+trig_instruction = NoEscape("Find the missing angle or side marked with a question mark.")
 
 
 class RectangleAreaProblem(problems.WordProblem):

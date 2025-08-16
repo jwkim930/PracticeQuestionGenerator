@@ -278,6 +278,9 @@ class Number(BaseMathEntity):
     def __ge__(self, other):
         return self > other or self == other
 
+    def __hash__(self):
+        return hash((self.sign, self.mag, self.wrap))
+
 
 class MultiVariableTerm(BaseMathEntity):
     def __init__(self, coefficient: NumberArgument, *variables: tuple[str, NumberArgument], hide_zero_exponent=False):

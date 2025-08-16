@@ -3,8 +3,8 @@ from decimal import Decimal
 from abc import ABC, abstractmethod
 
 from typing import Callable
-from pylatex import Math, Command, Tabular, MiniPage, Document, VerticalSpace, StandAloneGraphic, TikZ, Axis, Plot
-from pylatex.base_classes import Environment, CommandBase
+from pylatex import Math, Command, Tabular, MiniPage, Document, VerticalSpace, StandAloneGraphic, TikZ, Axis, Plot, TikZDraw
+from pylatex.base_classes import CommandBase
 from pylatex.utils import NoEscape
 import math
 import numpy as np
@@ -893,25 +893,24 @@ class EquationMultiOperation(ProblemBase):
         A fraction will always have distinct numerator and denominator.
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
-
-        simple: ax + b = c
-        simple_div: \frac{x}{a} + b = c
-        simple_dist: a(x + b) = c
-        double: ax + b = cx + d
-        double_dist: a(bx + c) = d(ex + f)
-        double_frac: \frac{x}{a} + \frac{b}{c} = \frac{d}{e}
-        double_frac_dist: \frac{a}{b}(x + c) = \frac{d}{e}(x + f)
-        rational: \frac{a}{x} = b, cannot be used with inequality
-        frac_const: \frac{x}{a} + b = \frac{c}{d}
-        bino_frac: \frac{x + a}{b} + \frac{c}{d} = \frac{e}{f}
-        double_bino_frac: \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f}
-        bino_frac_const: \frac{x + a}{b} + c = d
-        double_bino_frac_large: \frac{x + a}{b} + cx + d = \frac{x + e}{f} + g
-        insane_1: \frac{abx^(k+1) + acx^k}{ax^k} = d(ex + f + gx), where k in [1, 5]
-        insane_2: \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex, x >= 0
-        insane_3: \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number that makes the coefficient a perfect square
-        insane_4: (ax + b)^2 = (ox + c)^2 + d, where o == a or o == -a, x >= 0
-        insane_5: ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f), x >= 0
+         - simple: ax + b = c
+         - simple_div: \frac{x}{a} + b = c
+         - simple_dist: a(x + b) = c
+         - double: ax + b = cx + d
+         - double_dist: a(bx + c) = d(ex + f)
+         - double_frac: \frac{x}{a} + \frac{b}{c} = \frac{d}{e}
+         - double_frac_dist: \frac{a}{b}(x + c) = \frac{d}{e}(x + f)
+         - rational: \frac{a}{x} = b, cannot be used with inequality
+         - frac_const: \frac{x}{a} + b = \frac{c}{d}
+         - bino_frac: \frac{x + a}{b} + \frac{c}{d} = \frac{e}{f}
+         - double_bino_frac: \frac{x + a}{b} + \frac{x + c}{d} = \frac{e}{f}
+         - bino_frac_const: \frac{x + a}{b} + c = d
+         - double_bino_frac_large: \frac{x + a}{b} + cx + d = \frac{x + e}{f} + g
+         - insane_1: \frac{abx^(k+1) + acx^k}{ax^k} = d(ex + f + gx), where k in [1, 5]
+         - insane_2: \sqrt{(a^2/100)x(b^2x)} = \sqrt{\frac{c^2}{d^2}} + ex, x >= 0
+         - insane_3: \sqrt{ax(bx) + nx^2} + cx = \sqrt{(x + d)^2}, n is the smallest number that makes the coefficient a perfect square
+         - insane_4: (ax + b)^2 = (ox + c)^2 + d, where o == a or o == -a, x >= 0
+         - insane_5: ax + \sqrt{(b^2/100)x^2} = \sqrt{\frac{c^2}{d^2}}(ex + f), x >= 0
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -1424,20 +1423,19 @@ class FactorPolynomial(EquationMultiOperation):
         A fraction will always have distinct numerator and denominator.
 
         Possible types (the variable is always x, the rest are random. The order of terms may be randomized):
-
-        number: single-variable polynomial with a common integer factor
-        symbol: two-variable polynomial with a common variable factor
-        twonum: two-variable polynomial with a common integer factor
-        numsym: two-variable polynomial with common integer and variable factors
-        mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
-        nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
-        quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
-        quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
-        quad_twosym: two-variable polynomial that can be factored into two binomials
-        square: a perfect square of a single-variable binomial
-        square_twosym: a perfect square of a two-variable binomial
-        diffsq: the difference of a perfect square monomial and a perfect square constant
-        quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
+         - number: single-variable polynomial with a common integer factor
+         - symbol: two-variable polynomial with a common variable factor
+         - twonum: two-variable polynomial with a common integer factor
+         - numsym: two-variable polynomial with common integer and variable factors
+         - mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
+         - nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
+         - quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
+         - quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
+         - quad_twosym: two-variable polynomial that can be factored into two binomials
+         - square: a perfect square of a single-variable binomial
+         - square_twosym: a perfect square of a two-variable binomial
+         - diffsq: the difference of a perfect square monomial and a perfect square constant
+         - quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
 
         :param prob_type: The type of polynomial to be used.
                           Refer to the docstring for the options and the description of each type.
@@ -1635,10 +1633,9 @@ class QuadraticEquation(EquationMultiOperation):
         A fraction will always have distinct numerator and denominator.
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
-
-        fact_standard: ax^2 + bx + c = 0, can be solved by factoring
-        fact_separated: ax^2 + bx = c, can be solved by factoring
-        fact_double: ax^2 + bx + c = dx^2 + ex + f, can be solved by factoring
+         - fact_standard: ax^2 + bx + c = 0, can be solved by factoring
+         - fact_separated: ax^2 + bx = c, can be solved by factoring
+         - fact_double: ax^2 + bx + c = dx^2 + ex + f, can be solved by factoring
 
 
         :param num_quest: The number of questions to be generated.
@@ -2089,15 +2086,15 @@ class ExponentRulePractice(ProblemBase):
         The drawn exponent will never be 1.
 
         Here are the possible problem types:
-        - simple_mult: b^(e1) * b^(e2)
-        - simple_div: \frac{b^(e1)}{b^(e2)}, e1 >= e2
-        - simple_exp: (b^(e1))^(e2)
-        - simple_dist: ((b1)^(e1) * (b2)^(e2))^(e3)
-        - simple_root: \sqrt[e2]{b^(e1*e2)}, e2 > 1 and e2 != 0
+         - simple_mult: b^(e1) * b^(e2)
+         - simple_div: \frac{b^(e1)}{b^(e2)}, e1 >= e2
+         - simple_exp: (b^(e1))^(e2)
+         - simple_dist: ((b1)^(e1) * (b2)^(e2))^(e3)
+         - simple_root: \sqrt[e2]{b^(e1*e2)}, e2 > 1 and e2 != 0
             - If erange doesn't include anything greater than 1, e2 will always be 2 even if it's outside the range.
             - This problem type requires erange to also contain something other than 0.
-        - multdiv: product/quotient of b^(en), n = 3-5
-        - twobase_multdiv: product/quotient of (b1)^(en) and (b2)^(en), n = 4-6
+         - multdiv: product/quotient of b^(en), n = 3-5
+         - twobase_multdiv: product/quotient of (b1)^(en) and (b2)^(en), n = 4-6
 
         :param num_quest: The number of questions to be generated.
         :param brange: The range used for bases, (begin, end) inclusive. Must contain something other than 0 and +-1.
@@ -2249,3 +2246,303 @@ class ExponentRulePractice(ProblemBase):
 
         self.num_quest -= 1
         return [Math(data=result, inline=True)]
+
+
+class TrigonometryProblem(ProblemBase):
+    @staticmethod
+    def round_to(n: Number, precision: int, mode: int = 0) -> Number:
+        """
+        Returns the number rounded to set precision.
+
+        :param n: The number to be rounded.
+        :param precision: The precision to be used.
+                          For example, 0 means whole number and 2 means 2 decimal places.
+                          Must be non-negative.
+        :param mode: 0 will round to the nearest value, rounding up at half-point.
+                     A negative value will always round down.
+                     A positive value will always round up.
+        """
+        if precision < 0:
+            raise ValueError(f"precision cannot be negative, was given {precision}")
+        enlarged = n.get_signed() * (10**precision)
+        if mode < 0:
+            return Number(Decimal(math.floor(enlarged)) / (10**precision))
+        elif mode > 0:
+            return Number(Decimal(math.ceil(enlarged)) / (10**precision))
+        else:
+            if enlarged - math.floor(enlarged) < Decimal('0.5'):
+                return Number(Decimal(math.floor(enlarged)) / (10**precision))
+            else:
+                return Number(Decimal(math.ceil(enlarged)) / (10 ** precision))
+
+    def __init__(self, num_quest: int, lrange: tuple[NumberArgument, NumberArgument], *types: str, arange: tuple[int, int] = (10, 80), units=('cm',), precision=1):
+        """
+        Initializes a problem where right triangles are solved using trigonometric ratios.
+
+        Possible problem types:
+         - angle_sin: find the missing angle using sin
+         - angle_cos: find the missing angle using cos
+         - angle_tan: find the missing angle using tan
+         - side_sin: find the missing non-hypotenuse leg using sin
+         - hyp_sin: find the hypotenuse using sin
+         - side_cos: find the missing non-hypotenuse leg using cos
+         - hyp_cos: find the hypotenuse using cos
+         - side_tan: find the missing leg using tan
+
+        :param num_quest: The number of questions to be generated.
+        :param lrange: The range used for the lengths in the triangle, (begin, end) inclusive.
+        :param types: The problem types to be used. One will be drawn from this for each question.
+                      If omitted, all types will be available.
+        :param arange: The range used for the known angle (in degrees) in the triangle, (begin, end) inclusive.
+                       The widest range is (10, 80) (default value). If any of the bounds go beyond these,
+                       they will be shrunken down to fit within this range.
+        :param units: The units of length to be used. One problem will only use one unit.
+        :param precision: The precision of the lengths. 0 means whole number, 1 means first decimal place, etc.
+        """
+        if lrange[1] < lrange[0]:
+            raise ValueError(f"invalid lrange given: {lrange}")
+        if lrange[0] < 0:
+            raise ValueError(f"lrange cannot contain a negative number, was given {lrange}")
+        if precision < 0:
+            raise ValueError(f"precision cannot be negative, was given {precision}")
+        if arange[1] < arange[0]:
+            raise ValueError(f"invalid arange given: {arange}")
+
+        arange = max(arange[0], 10), min(arange[1], 80)
+        left = TrigonometryProblem.round_to(Number(lrange[0]), precision, 1)
+        right = TrigonometryProblem.round_to(Number(lrange[1]), precision, -1)
+        lrange = Number(left), Number(right)
+        if lrange[1] - lrange[0] < precision and set(types) - {'angle_tan', 'side_tan'}:
+            raise ValueError("lrange only contains one number for the given precision but non-tan problems chosen")
+
+        possible_types = (
+            'angle_sin',
+            'angle_cos',
+            'angle_tan',
+            'side_sin',
+            'hyp_sin',
+            'side_cos',
+            'hyp_cos',
+            'side_tan'
+        )
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"problem type {t} is not valid")
+        if not types:
+            if lrange[1] - lrange[0] < precision:
+                types = tuple([t for t in possible_types if t not in ['angle_tan', 'side_tan']])
+            else:
+                types = possible_types
+
+        super().__init__(num_quest, "0cm")
+        self.lrange = lrange
+        self.arange = arange
+        self.units = units
+        self.precision = precision
+        self.types = types
+
+    def get_problem(self) -> list[DocInjector]:
+        def draw_length() -> Number:
+            start = int(self.lrange[0].get_signed() * (10**self.precision))
+            end = int(self.lrange[1].get_signed() * (10**self.precision))
+            return Number(Decimal(randint(start, end)) / (10**self.precision))
+
+        def lengths_to_vertices(a: Number, b: Number, c: Number, orientation: int) -> tuple[tuple[Number, Number], tuple[Number, Number], tuple[Number, Number]]:
+            """
+            :param a: The length of the horizontal leg.
+            :param b: The length of the vertical leg.
+            :param c: The length of the hypotenuse.
+            :param orientation: Determines the orientation of the triangle.
+                                1, 2, 3, and 4 corresponds to the right angle being at the
+                                top-left, top-right, bottom-left, and bottom-right, respectively.
+            :return: The coordinates of the vertices of the triangle, ordered A, B, C (opposite to a, b, c).
+            """
+            if orientation not in [1, 2, 3, 4]:
+                raise ValueError(f"triangle orientation {orientation} is invalid")
+
+            # scale the lengths so that longest non-hypotenuse is 4
+            factor = 4 / (b if a < b else a).get_signed()
+            a_scaled = TrigonometryProblem.round_to(a * factor, self.precision)
+            b_scaled = TrigonometryProblem.round_to(b * factor, self.precision)
+            c_scaled = TrigonometryProblem.round_to(c * factor, self.precision)
+            match orientation:
+                case 1:
+                    A = (Number(0), Number(0))
+                    B = (a_scaled, b_scaled)
+                    C = (Number(0), b_scaled)
+                case 2:
+                    A = (a_scaled, Number(0))
+                    B = (Number(0), b_scaled)
+                    C = (a_scaled, b_scaled)
+                case 3:
+                    A = (Number(0), b_scaled)
+                    B = (a_scaled, Number(0))
+                    C = (Number(0), Number(0))
+                case 4:
+                    A = (a_scaled, b_scaled)
+                    B = (Number(0), Number(0))
+                    C = (a_scaled, Number(0))
+
+            return A, B, C
+
+        def order_for_inside_angle(p, v, q):
+            """
+            Reorder coordinates so that TikZ draws internal angle.
+            v is the vertex where the angle is at.
+            """
+            px, py = p[0] - v[0], p[1] - v[1]
+            qx, qy = q[0] - v[0], q[1] - v[1]
+            cross = px * qy - py * qx
+            if cross < 0:
+                return q, v, p
+            else:
+                return p, v, q
+
+        # Set up problem parameters
+        prob_type = choice(self.types)
+        unit = choice(self.units)
+        angle = randint(self.arange[0], self.arange[1])
+        length = draw_length()
+        if prob_type in ["angle_sin", "side_sin", "hyp_sin"]:
+            # need opposite and hypotenuse
+            c = length
+            if random() < 0.5:
+                # a is opposite
+                a = TrigonometryProblem.round_to(c * Number(math.sin(angle * math.pi / 180)), self.precision)
+                angle_name = "A"
+                b = TrigonometryProblem.round_to(Number(math.sqrt(c.get_signed()**2 - a.get_signed()**2)), self.precision)
+            else:
+                # b is opposite
+                b = TrigonometryProblem.round_to(c * Number(math.sin(angle * math.pi / 180)), self.precision)
+                angle_name = "B"
+                a = TrigonometryProblem.round_to(Number(math.sqrt(c.get_signed()**2 - b.get_signed()**2)), self.precision)
+        elif prob_type in ["angle_cos", "side_cos", "hyp_cos"]:
+            # need adjacent and hypotenuse
+            c = length
+            if random() < 0.5:
+                # a is adjacent
+                a = TrigonometryProblem.round_to(c * Number(math.cos(angle * math.pi / 180)), self.precision)
+                angle_name = "B"
+                b = TrigonometryProblem.round_to(Number(math.sqrt(c.get_signed()**2 - a.get_signed()**2)), self.precision)
+            else:
+                # b is adjacent
+                b = TrigonometryProblem.round_to(c * Number(math.cos(angle * math.pi / 180)), self.precision)
+                angle_name = "A"
+                a = TrigonometryProblem.round_to(Number(math.sqrt(c.get_signed()**2 - b.get_signed()**2)), self.precision)
+        else:
+            # need two legs
+            if random() < 0.5:
+                # a is adjacent
+                a = draw_length()
+                angle_name = "B"
+                b = TrigonometryProblem.round_to(a * Number(math.tan(angle * math.pi / 180)), self.precision)
+            else:
+                # b is adjacent
+                b = draw_length()
+                angle_name = "A"
+                a = TrigonometryProblem.round_to(b * Number(math.tan(angle * math.pi / 180)), self.precision)
+            c = TrigonometryProblem.round_to(Number(math.sqrt(a.get_signed()**2 + b.get_signed()**2)), self.precision)
+        orientation = randint(1, 4)
+
+        def draw_triangle(doc: Document):
+            # Triangle vertices
+            A, B, C = lengths_to_vertices(a, b, c, orientation)
+            vertex_name = {A: "A", B: "B", C: "C"}
+            vertex_name_reverse = {"A": A, "B": B, "C": C}
+            match orientation:
+                case 1:
+                    vertex_label_placements = ["below left", "right", "above left"]
+                    side_label_placements = ["above", "left", "below right"]
+                case 2:
+                    vertex_label_placements = ["below right", "left", "above right"]
+                    side_label_placements = ["above", "right", "below left"]
+                case 3:
+                    vertex_label_placements = ["above", "right", "below left"]
+                    side_label_placements = ["below", "left", "above right"]
+                case 4:
+                    vertex_label_placements = ["above", "left", "right"]
+                    side_label_placements = ["below", "right", "above left"]
+
+            with doc.create(TikZ()) as tikz:
+                # Name vertex coordinates
+                str_Number_tuple = lambda t: '(' + ','.join([n.dumps() for n in t]) + ')'
+                tikz.append(NoEscape(rf'\coordinate (A) at {str_Number_tuple(A)};'))
+                tikz.append(NoEscape(rf'\coordinate (B) at {str_Number_tuple(B)};'))
+                tikz.append(NoEscape(rf'\coordinate (C) at {str_Number_tuple(C)};'))
+
+                # Triangle outline
+                tikz.append(TikZDraw([str_Number_tuple(A), '--',
+                                      str_Number_tuple(B), '--',
+                                      str_Number_tuple(C), '--',
+                                      str_Number_tuple(A)]))
+
+                # Label vertices
+                tikz.append(NoEscape(rf'\node[{vertex_label_placements[0]}] at (A) {{$A$}};'))
+                tikz.append(NoEscape(rf'\node[{vertex_label_placements[1]}] at (B) {{$B$}};'))
+                tikz.append(NoEscape(rf'\node[{vertex_label_placements[2]}] at (C) {{$C$}};'))
+
+                # Right angle at C
+                tikz.append(NoEscape(r'\path pic["", draw=black, angle radius=3mm]{right angle=A--C--B};'))
+
+                # Angle at the angle
+                the_angle = vertex_name_reverse[angle_name]
+                other1, other2 = tuple([ngle for ngle in [A, B, C] if ngle is not the_angle])
+                order = [vertex_name[v] for v in order_for_inside_angle(other1, the_angle, other2)]
+                angle_text = "?" if prob_type in ['angle_sin', 'angle_cos', 'angle_tan'] else rf"{angle}^\circ"
+                tikz.append(NoEscape(r'\path pic["${}$", draw=black, angle radius=6mm, angle eccentricity=1.5]{{angle={}--{}--{}}};'.format(angle_text, *order)))
+
+                # Side length labels
+                a_text = f"${a}$ {unit}"
+                b_text = f"${b}$ {unit}"
+                c_text = f"${c}$ {unit}"
+                match prob_type:
+                    case "angle_sin":
+                        if angle_name == "A":
+                            b_text = ""
+                        else:
+                            a_text = ""
+                    case "angle_cos":
+                        if angle_name == "A":
+                            a_text = ""
+                        else:
+                            b_text = ""
+                    case "angle_tan":
+                        c_text = ""
+                    case "side_sin":
+                        if angle_name == "A":
+                            a_text = "?"
+                            b_text = ""
+                        else:
+                            a_text = ""
+                            b_text = "?"
+                    case "hyp_sin":
+                        c_text = "?"
+                        if angle_name == "A":
+                            b_text = ""
+                        else:
+                            a_text = ""
+                    case "side_cos":
+                        if angle_name == "A":
+                            a_text = ""
+                            b_text = "?"
+                        else:
+                            a_text = "?"
+                            b_text = ""
+                    case "hyp_cos":
+                        c_text = "?"
+                        if angle_name == "A":
+                            a_text = ""
+                        else:
+                            b_text = ""
+                    case "side_tan":
+                        c_text = ""
+                        if random() < 0.5:
+                            a_text = "?"
+                        else:
+                            b_text = "?"
+                tikz.append(NoEscape(rf'\draw ($(B)!0.5!(C)$) node[{side_label_placements[0]}] {{{a_text}}};'))
+                tikz.append(NoEscape(rf'\draw ($(C)!0.5!(A)$) node[{side_label_placements[1]}] {{{b_text}}};'))
+                tikz.append(NoEscape(rf'\draw ($(A)!0.5!(B)$) node[{side_label_placements[2]}] {{{c_text}}};'))
+
+        self.num_quest -= 1
+        return [DocInjector(draw_triangle)]
