@@ -11,11 +11,18 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.TrigonometryProblem(50, (5, 10))]
+    [problems.IntegerAddition(2, (-19, 19)),
+     problems.IntegerSubtraction(2, (-19, 19)),
+     problems.IntegerMultiplication(2, (-9, 9)),
+     problems.IntegerDivision(2, (-9, 9)),
+     problems.FractionAddition(2, (-9, 9), (-9, 9)),
+     problems.FractionSubtraction(2, (-9, 9), (-9, 9)),
+     problems.FractionMultiplication(2, (-9, 9), (-9, 9)),
+     problems.FractionDivision(2, (-9, 9), (-9, 9))]
 ]
-prob_names = ["Trigonometry"]
-prob_insts = [preset.trig_instruction]
-prob_cols = [1]
+prob_names = ["Arithmetic"]
+prob_insts = ["Calculate the following expressions."]
+prob_cols = [2]
 # If mix_up is True, questions are generated in mixed order for that section.
 mix_up = [False]
 title = "Grade 9 Review"   # ignored if there's only one section
@@ -25,7 +32,7 @@ if len({len(probs), len(prob_names), len(prob_insts), len(prob_cols)}) > 1:
     raise ValueError("the number of sections do not agree")
 nsec = len(probs)
 doc = Document(geometry_options={"paper": "letterpaper", "margin": "0.8in"})
-doc.packages.append(Package("graphicx"))
+doc.packages.append(Package("graphicx,tikz"))
 if nsec == 1:
     title = prob_names[0] + " Practice"
 doc.preamble.append(Command("usetikzlibrary", "angles,quotes,calc"))

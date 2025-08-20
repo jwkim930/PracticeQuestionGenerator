@@ -80,7 +80,7 @@ class BinaryOperation(ProblemBase, ABC):
         :return: The two generated operands in a tuple.
         """
         ops = [self.generator() for _ in range(2)]
-        if self.neg:
+        if self.neg and -1 not in [ops[0].sign, ops[2].sign]:
             neg_i = randint(0, 1)
             other_i = 1 - neg_i
             ops[neg_i] = -ops[neg_i]
@@ -102,15 +102,67 @@ class IntegerBinaryOperation(BinaryOperation):
         :param num_quest: The number of questions to be generated.
         :param operand: The operand to be used, such as + or \\times.
         :param orange: The range for the operands, (begin, end) inclusive.
-                       If the range includes a negative number, using neg=True may not produce
-                       negative operands because a negative operand might be negated again.
         :param neg: If True, at least one of the operands will be negative.
         """
         super().__init__(num_quest, operand, neg)
         self.orange = orange
 
     def generator(self) -> Number:
-        return Number(randint(self.orange[0], self.orange[1]))
+        return Number(randint(self.orange[0], self.orange[1]), True)
+
+
+class IntegerAddition(IntegerBinaryOperation):
+    def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
+        """
+        :param num_quest: The number of questions to be generated.
+        :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "+", orange, neg)
+
+
+class IntegerSubtraction(IntegerBinaryOperation):
+    def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
+        """
+        :param num_quest: The number of questions to be generated.
+        :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "-", orange, neg)
+
+class IntegerMultiplication(IntegerBinaryOperation):
+    def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
+        """
+        :param num_quest: The number of questions to be generated.
+        :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, Command("times"), orange, neg)
+
+class IntegerDivision(IntegerBinaryOperation):
+    def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
+        """
+        :param num_quest: The number of questions to be generated.
+        :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        if orange[0] == orange[1] and orange[0] == 0:
+            raise ValueError("the given orange cannot generate a non-zero operand")
+        super().__init__(num_quest, Command("div"), orange, neg)
+
+    def generator(self) -> Number:
+        result = 0
+        while result == 0:
+            result = super().generator()
+        return result
 
 
 class FractionBinaryOperation(BinaryOperation):
@@ -135,19 +187,36 @@ class FractionBinaryOperation(BinaryOperation):
         return self.generate_random_fraction(self.nrange, self.drange, self.no1)
 
     @staticmethod
-    def generate_random_fraction(nrange, drange, no1=True) -> Fraction:
+    def generate_random_fraction(nrange: tuple[int, int], drange: tuple[int, int], no1=True) -> Fraction:
         """
         Generates a fraction with random numerator and denominator.
+        The numerator and the denominator will never be 0.
+
         :param nrange: The range for numerator, (begin, end) inclusive.
         :param drange: The range for denominator, (begin, end) inclusive.
         :param no1: If True, the numerator and the denominator are always different.
         """
+        if nrange[0] == nrange[1]:
+            if nrange[0] == 0:
+                raise ValueError("nrange must contain a non-zero integer")
+            if no1 and nrange == drange:
+                raise ValueError("nrange and drange can only generate the same number but no1 used")
+        if drange[0] == drange[1] and drange[0] == 0:
+            raise ValueError("drange must contain a non-zero integer")
+
         n = randint(nrange[0], nrange[1])
+        while n == 0:
+            n = randint(nrange[0], nrange[1])
         d = randint(drange[0], drange[1])
+        while d == 0:
+            d = randint(drange[0], drange[1])
+        sign = int(math.copysign(1, n * d))
+        n = abs(n)
+        d = abs(d)
         if no1:
-            while d == n:
-                d = randint(drange[0], drange[1])
-        return Fraction(n, d)
+            while d == n or d == 0:
+                d = abs(randint(drange[0], drange[1]))
+        return Fraction(n, d, sign, wrap=True)
 
 
 class FractionAddition(FractionBinaryOperation):
