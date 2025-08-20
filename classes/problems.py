@@ -275,6 +275,97 @@ class FractionDivision(FractionBinaryOperation):
         super().__init__(num_quest, Command('div'), nrange, drange, no1, neg)
 
 
+class DecimalBinaryOperation(BinaryOperation):
+    def __init__(self, num_quest: int, operand: str | Command, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are used for calculation.
+
+        :param num_quest: The number of questions to be generated.
+        :param operand: The operand to be used, such as + or \\times.
+        :param nrange: The range for the operands, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        if prange[0] > prange[1] or prange[0] < 0:
+            raise ValueError("Invalid prange given: " + str(prange))
+        super().__init__(num_quest, operand, neg)
+        self.nrange = Number(nrange[0]), Number(nrange[1])
+        self.prange = prange
+
+    def generator(self) -> Number:
+        p = randint(self.prange[0], self.prange[1])
+        start = math.ceil(self.nrange[0].get_signed() * (10**p))
+        end = math.floor(self.nrange[1].get_signed() * (10**p))
+        n = randint(start, end) / Decimal(10**p)
+        return Number(n, wrap=True)
+
+
+class DecimalAddition(DecimalBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are added.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for the operand base, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "+", nrange, prange, neg)
+
+
+class DecimalSubtraction(DecimalBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are subtracted.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for the operand base, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "-", nrange, prange, neg)
+
+
+class DecimalMultiplication(DecimalBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are multiplied.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for the operand base, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, Command("times"), nrange, prange, neg)
+
+
+class DecimalDivision(DecimalBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are divided.
+        The operands will never be 0, so nrange must be able to generate a non-zero number.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for the operand base, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        if nrange[0] == nrange[1] and nrange[0] == 0:
+            raise ValueError(f"The given nrange of {nrange} cannot generate a non-zero number")
+        super().__init__(num_quest, Command("div"), nrange, prange, neg)
+
+    def generator(self) -> Number:
+        n = 0
+        while n == 0:
+            n = super().generator()
+        return n
+
+
 class BEDMASPractice(ProblemBase):
     def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str):
         """
