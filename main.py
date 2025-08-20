@@ -18,7 +18,8 @@ probs = [
      problems.FractionAddition(2, (-9, 9), (-9, 9)),
      problems.FractionSubtraction(2, (-9, 9), (-9, 9)),
      problems.FractionMultiplication(2, (-9, 9), (-9, 9)),
-     problems.FractionDivision(2, (-9, 9), (-9, 9))]
+     problems.FractionDivision(2, (-9, 9), (-9, 9)),
+     problems.BEDMASPractice(5, (2, 9))]
 ]
 prob_names = ["Arithmetic"]
 prob_insts = ["Calculate the following expressions."]

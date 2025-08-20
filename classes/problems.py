@@ -275,6 +275,107 @@ class FractionDivision(FractionBinaryOperation):
         super().__init__(num_quest, Command('div'), nrange, drange, no1, neg)
 
 
+class BEDMASPractice(ProblemBase):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str):
+        """
+        Initializes problems where an expression needs to be simplified using BEDMAS.
+
+        Here are the possible problem types:
+         - simple: a (o1) b (o2) c, where o1, o2 are + and * in random order
+         - brackets: (a + b) * c
+         - exponent: a * b^c, c = 2 or 3
+         - nested_brackets: (a * (b + c)) / d
+         - complex: (a + b)^c * d + e / f, c = 2 or 3, e/f may be on the left side
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for integer values, (begin, end) inclusive.
+                       Must contain at least two different integers.
+        :param types: The problem types to be chosen from. If omitted, all types will be allowed.
+        """
+        if (nrange[0] > nrange[1]) or (nrange[0] == nrange[1]):
+            raise ValueError("nrange must contain at least two distinct integers. nrange given: " + str(nrange))
+        possible_types = (
+            "simple",
+            "brackets",
+            "exponent",
+            "nested_brackets",
+            "complex"
+        )
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"the problem type {t} is not valid")
+        if not types:
+            types = possible_types
+        super().__init__(num_quest, "0cm")
+        self.nrange = nrange
+        self.types = types
+
+    def get_problem(self) -> list[Math]:
+        def draw_n(*blacklist: int) -> int:
+            candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n not in blacklist]
+            if not candidates:
+                raise ValueError("No possible values after removing blacklist elements")
+            return choice(candidates)
+
+        prob_type = choice(self.types)
+        result = []
+
+        match prob_type:
+            case "simple":
+                a, b, c = draw_n(), draw_n(), draw_n()
+                if random() < 0.5:
+                    # times first
+                    result.extend([str(a), Command("times")])
+                    result.extend(UnsafePolynomial(Number(b, wrap=True), Number(c)).get_latex())
+                else:
+                    # times last
+                    result.extend(UnsafePolynomial(Number(a), Number(b)).get_latex())
+                    result.append(Command("times"))
+                    result.extend(Number(c, wrap=True).get_latex())
+            case "brackets":
+                a, b, c = draw_n(), draw_n(), draw_n()
+                result.append(Command("left("))
+                result.extend(UnsafePolynomial(Number(a), Number(b)).get_latex())
+                result.extend([Command("right)"), Command("times")])
+                result.extend(Number(c, wrap=True).get_latex())
+            case "exponent":
+                a, b, c = draw_n(), draw_n(0, 1), randint(2, 3)
+                result.extend(Number(a, wrap=True).get_latex())
+                result.append(Command("times"))
+                result.extend(SingleVariablePolynomial(Number(b, wrap=True).dumps(), [{"coefficient": 1, "exponent": c}]).get_latex())
+            case "nested_brackets":
+                a, b, c, d = draw_n(), draw_n(), draw_n(), draw_n(0)
+                result.extend([Command("left("), a, Command("times")])
+                result.append(Command("left("))
+                result.extend(UnsafePolynomial(Number(b), Number(c)).get_latex())
+                result.extend([Command("right)"), Command("right)"), Command("div")])
+                result.extend(Number(d, wrap=True).get_latex())
+            case "complex":
+                a, b, c, d, e, f = draw_n(), draw_n(), randint(2, 3), draw_n(), draw_n(), draw_n(0)
+                left = []
+                right = []
+                left.append(Command("left("))
+                left.extend(UnsafePolynomial(Number(a), Number(b)).get_latex())
+                left.extend([Command("right)"), NoEscape("^"), c])
+                right.extend(Number(e, wrap=True).get_latex())
+                right.append(Command("div"))
+                right.extend(Number(f, wrap=True).get_latex())
+
+                if random() < 0.5:
+                    result.extend(left)
+                    result.append(choice("+-"))
+                    result.extend(right)
+                else:
+                    result.extend(right)
+                    result.append(choice("+-"))
+                    result.extend(left)
+
+        result.append(NoEscape("="))
+
+        self.num_quest -= 1
+        return [Math(data=result, inline=True)]
+
+
 class WordProblem(ProblemBase):
     def __init__(self, num_quest: int, vspace: str, name: str, ranges: list[tuple[int, int]]):
         """
