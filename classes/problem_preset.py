@@ -10,6 +10,9 @@ polynomial_instruction = NoEscape("Simplify the following polynomials as much as
 graphing_instruction = NoEscape("Sketch a graph of $y = f(x)$ for the following relations.")
 trig_instruction = NoEscape("Find the missing angle or side marked with a question mark.")
 
+trig_length_problems = ('side_sin', 'hyp_sin', 'side_cos', 'hyp_cos', 'side_tan')
+trig_angle_problems = ('angle_sin', 'angle_cos', 'angle_tan')
+
 
 class RectangleAreaProblem(problems.WordProblem):
     def __init__(self, num_quest: int):

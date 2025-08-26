@@ -11,24 +11,17 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.IntegerAddition(2, (-19, 19)),
-     problems.IntegerSubtraction(1, (-19, 19)),
-     problems.IntegerMultiplication(2, (-9, 9)),
-     problems.IntegerDivision(2, (-9, 9)),
-     problems.FractionAddition(2, (-9, 9), (-9, 9)),
-     problems.FractionMultiplication(2, (-9, 9), (-9, 9)),
-     problems.FractionDivision(2, (-9, 9), (-9, 9)),
-     problems.DecimalAddition(2, (2, 9), (1, 2)),
-     problems.DecimalMultiplication(2, (2, 9), (1, 2)),
-     problems.DecimalDivision(2, (2, 9), (0, 2)),
-     problems.BEDMASPractice(3, (2, 9)),]
+    [problems.TrigonometryProblem(7, (2, 9), *preset.trig_angle_problems, arange=(30, 60), units=('cm', 'in', 'm', 'mm')),
+     problems.TrigonometryProblem(7, (2, 9), *preset.trig_length_problems, arange=(30, 60), units=('cm', 'in', 'm', 'mm'))]
 ]
-prob_names = ["Arithmetic"]
-prob_insts = ["Calculate the following expressions."]
-prob_cols = [2]
+prob_names = ["Trigonometry"]
+prob_insts = [preset.trig_instruction]
+prob_cols = [1]
 # If mix_up is True, questions are generated in mixed order for that section.
-mix_up = [False]
+mix_up = [True]
 title = "Grade 9 Review"   # ignored if there's only one section
+
+
 
 # Don't edit below
 if len({len(probs), len(prob_names), len(prob_insts), len(prob_cols)}) > 1:
