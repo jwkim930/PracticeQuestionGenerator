@@ -281,6 +281,12 @@ class Number(BaseMathEntity):
     def __hash__(self):
         return hash((self.sign, self.mag, self.wrap))
 
+    def __abs__(self) -> "Number":
+        if self < 0:
+            return -self
+        else:
+            return Number(self)
+
 
 class MultiVariableTerm(BaseMathEntity):
     def __init__(self, coefficient: NumberArgument, *variables: tuple[str, NumberArgument], hide_zero_exponent=False):
@@ -350,6 +356,9 @@ class MultiVariableTerm(BaseMathEntity):
 
     __rmul__ = __mul__
 
+    def __len__(self) -> int:
+        return len(self.variables)
+
     def get_latex(self) -> list[NoEscape]:
         result = []
         if self.get_signed_coefficient() == -1:
@@ -418,6 +427,8 @@ class MultiVariablePolynomial(BaseMathClass):
     __rmul__ = __mul__
 
     def get_latex(self) -> list[Command | NoEscape]:
+        if not self.terms:
+            return []
         result = []
         if self.wrap:
             result.append(Command("left("))
@@ -452,10 +463,10 @@ class MultiVariablePolynomial(BaseMathClass):
         """
         return self.terms.pop(index)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.terms)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> MultiVariableTerm:
         return self.terms[index]
 
     def __setitem__(self, index, value):
@@ -479,12 +490,48 @@ class MultiVariablePolynomial(BaseMathClass):
         :returns: self for chained method calls
         """
         i = 0
-        while i < len(self.terms):
+        while i < len(self):
             term = self.terms[i]
             if term.coefficient == 0:
                 self.terms.pop(i)
                 i -= 1   # adjust index
             i += 1
+        return self
+
+    def simplify(self) -> Self:
+        """
+        Simplifies the polynomial in place, combining like terms.
+
+        :returns: self for chained method calls
+        """
+        self.remove_zeros()
+        # reorder variables within terms in alphabetical ordering
+        for term in self.terms:
+            term.variables.sort(key=lambda t: t[0])
+            # if there are duplicate variables, combine them
+            i = 0
+            while i + 1 < len(term):
+                if term.variables[i][0] == term.variables[i+1][0]:
+                    term.variables[i] = term.variables[i][0], (term.variables[i][1] + term.variables.pop(i+1)[1])
+                    i -= 1   # adjust index
+                i += 1
+        # sort terms by lexicographic ordering
+        self.terms.sort(key=lambda t: (-sum((tt[1] for tt in t.variables), Number(0)), [(va[0], -va[1]) for va in t.variables]))
+        # combine like terms and remove if they cancel out
+        i = 0
+        while 0 < i + 1 < len(self):
+            if self[i].variables == self[i+1].variables:
+                # combine coefficients, remembering the sign is taken out
+                new = self[i].get_signed_coefficient() + self[i+1].get_signed_coefficient()
+                self[i].sign = new.sign
+                self[i].coefficient = abs(new)
+                self.pop(i+1)
+                if self[i].coefficient == 0:
+                    self.pop(i)
+                    i -= 1   # adjust index
+                i -= 1   # adjust index
+            i += 1
+
         return self
 
 
@@ -667,6 +714,27 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
             else:
                 raise ValueError("SingleVariablePolynomial contained a MultiVariableTerm, not Term")
         return self
+
+    def _update_degree(self) -> Self:
+        self.degree = float('-inf')   # reset degree
+        for t in self.terms:
+            if isinstance(t, Term):
+                if t.variables:
+                    self.degree = max(self.degree, t.get_exponent())
+            else:
+                raise AssertionError("SingleVariablePolynomial contained something other than Term")
+        if isinstance(self.degree, float):
+            # no term, set degree to 0
+            self.degree = 0
+        return self
+
+    def remove_zeros(self) -> Self:
+        # override to update degree
+        return super().remove_zeros()._update_degree()
+
+    def simplify(self) -> Self:
+        # override to update degree
+        return super().simplify()._update_degree()
 
 class PolynomialFraction(BaseMathClass):
     def __init__(self, num: SingleVariablePolynomial, denom: SingleVariablePolynomial, sign=1, wrap=False):
