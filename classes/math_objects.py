@@ -423,7 +423,18 @@ class MultiVariablePolynomial(BaseMathClass):
             self.mix()
         self.wrap = wrap
 
-    def __mul__(self, other):
+    def __add__(self, other) -> Self:
+        if isinstance(other, MultiVariableTerm):
+            return MultiVariablePolynomial(self.terms + [other], wrap=self.wrap)
+        if isinstance(other, (int, float, Decimal, Number)):
+            return MultiVariablePolynomial(self.terms + [MultiVariableTerm(other)], wrap=self.wrap)
+        if isinstance(other, MultiVariablePolynomial):
+            return MultiVariablePolynomial(self.terms + other.terms, wrap=self.wrap or other.wrap)
+        return NotImplemented
+
+    __radd__ = __add__
+
+    def __mul__(self, other) -> Self:
         if isinstance(other, MultiVariableTerm) or type(other) in (int, float, Decimal, Number):
             terms = self.terms.copy()
             for i in range(len(terms)):
@@ -698,7 +709,16 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
     def degree(self) -> int:
         return self._degree
 
-    def __mul__(self, other):
+    def __add__(self, other) -> Self:
+        if ((isinstance(other, Term) and self.variable == other.get_variable()) or
+            (isinstance(other, SingleVariablePolynomial) and self.variable == other.variable) or
+            isinstance(other, (int, float, Decimal, Number))):
+            return SingleVariablePolynomial.singlify(super().__add__(other))
+        return super().__add__(other)
+
+    __radd__ = __add__
+
+    def __mul__(self, other) -> Self:
         if ((isinstance(other, SingleVariablePolynomial) and self.variable == other.variable) or
             (isinstance(other, Term) and self.variable == other.get_variable()) or
             type(other) in (int, float, Decimal, Number)
