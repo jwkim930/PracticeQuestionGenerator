@@ -11,8 +11,7 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.TrigonometryProblem(7, (2, 9), *preset.trig_angle_problems, arange=(30, 60), units=('cm', 'in', 'm', 'mm')),
-     problems.TrigonometryProblem(7, (2, 9), *preset.trig_length_problems, arange=(30, 60), units=('cm', 'in', 'm', 'mm'))]
+    [problems.TrigonometryProblem(7, (5, 20), arange=(20, 70), units=('cm', 'in', 'm', 'mm'))]
 ]
 prob_names = ["Trigonometry"]
 prob_insts = [preset.trig_instruction]
@@ -43,7 +42,8 @@ def print_problems(i: int):
             q += 1
             probi = randint(0, len(probs[i]) - 1) if mix_up[i] else 0
             prob = probs[i][probi]
-            with doc.create(Subsection(f"Q {i+1}.{q}", False)):
+            qnum = f"Q {i+1}.{q}" if nsec > 1 else f"Q{q}"
+            with doc.create(Subsection(qnum, False)):
                 with doc.create(MiniPage()):
                     for elem in prob.get_problem():
                         if isinstance(elem, problems.DocInjector):
