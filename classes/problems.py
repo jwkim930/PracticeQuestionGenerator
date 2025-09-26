@@ -2508,6 +2508,107 @@ class ExponentRulePractice(ProblemBase):
         self.num_quest -= 1
         return [Math(data=result, inline=True)]
 
+class PowerSignPractice(ProblemBase):
+    def __init__(self, num_quest: int, *types: str):
+        """
+        Initializes problems where the sign of the evaluated value needs to be determined.
+        Here are the possible problem types:
+         - single: one number, no multiplication involved (e.g. -4^2)
+         - multiple: multiple numbers multiplied
+         - multiple_raised: multiple numbers multiplied, the whole thing exponentiated
+
+        :param num_quest: The number of questions to be generated.
+        :param types: The problem types to be chosen from. If omitted, all types will be allowed.
+        """
+        super().__init__(num_quest, "0cm")
+        possible_types = ('single', 'multiple', 'multiple_raised')
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"the problem type {t} is not valid")
+        if not types:
+            types = possible_types
+        self.types = types
+
+    def get_problem(self) -> list[Math]:
+        prob_type = choice(self.types)
+        result = []
+
+        match prob_type:
+            case 'single':
+                base = randint(1, 9)
+                exponent = randint(0, 9)
+                key = random()
+                if key < 0.2:
+                    # 4^2 or (4^2)
+                    result.append(NoEscape(f"{base}^{{{exponent}}}"))
+                    if random() < 0.5:
+                        result.insert(0, Command("left("))
+                        result.append(Command("right)"))
+                elif key < 0.4:
+                    # (-4)^2
+                    result.append(NoEscape(f"(-{base})^{{{exponent}}}"))
+                elif key < 0.6:
+                    # -4^2 or (-4^2)
+                    result.append(NoEscape(f"-{base}^{{{exponent}}}"))
+                    if random() < 0.5:
+                        result.insert(0, Command("left("))
+                        result.append(Command("right)"))
+                elif key < 0.8:
+                    # -(-4)^2
+                    result.append(NoEscape(f"-(-{base})^{{{exponent}}}"))
+                else:
+                    # -(4)^2
+                    result.append(NoEscape(f"-({base})^{{{exponent}}}"))
+            case 'multiple':
+                n = randint(2, 5)
+                for _ in range(n):
+                    base = randint(1, 9)
+                    exponent = randint(0, 9)
+                    key = random()
+                    if key < 0.25:
+                        # 4^2
+                        result.append(NoEscape(f"{base}^{{{exponent}}}"))
+                        result.append(Command("cdot"))
+                    elif key < 0.5:
+                        # (4)^2
+                        result.extend([Command("left("), base, Command("right)"), NoEscape(f"^{{{exponent}}}"), Command("cdot")])
+                    elif key < 0.75:
+                        # (-4^2)
+                        result.extend([Command("left("), -base, NoEscape(f"^{{{exponent}}}"), Command("right)"), Command("cdot")])
+                    else:
+                        # (-4)^2
+                        result.extend([Command("left("), -base, Command("right)"), NoEscape(f"^{{{exponent}}}"), Command("cdot")])
+                result.pop(-1)   # remove the last cdot
+            case 'multiple_raised':
+                n = randint(2, 5)
+                result.append(Command("left("))
+                for _ in range(n):
+                    base = randint(1, 9)
+                    exponent = randint(0, 9)
+                    key = random()
+                    if key < 0.25:
+                        # 4^2
+                        result.append(NoEscape(f"{base}^{{{exponent}}}"))
+                        result.append(Command("cdot"))
+                    elif key < 0.5:
+                        # (4)^2
+                        result.extend(
+                            [Command("left("), base, Command("right)"), NoEscape(f"^{{{exponent}}}"), Command("cdot")])
+                    elif key < 0.75:
+                        # (-4^2)
+                        result.extend(
+                            [Command("left("), -base, NoEscape(f"^{{{exponent}}}"), Command("right)"), Command("cdot")])
+                    else:
+                        # (-4)^2
+                        result.extend(
+                            [Command("left("), -base, Command("right)"), NoEscape(f"^{{{exponent}}}"), Command("cdot")])
+                result.pop(-1)   # remove the last cdot
+                result.append(Command("right)"))
+                result.append(NoEscape(f"^{{{randint(0, 9)}}}"))
+
+        self.num_quest -= 1
+        return [Math(inline=True, data=result)]
+
 
 class TrigonometryProblem(ProblemBase):
     @staticmethod

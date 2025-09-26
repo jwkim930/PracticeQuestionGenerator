@@ -8,6 +8,7 @@ equation_instruction = NoEscape("Solve the following equations. Verify your solu
 inequality_instruction = NoEscape("Solve the following inequalities. Verify your solution both at and beyond the bound.")
 polynomial_instruction = NoEscape("Simplify the following polynomials as much as possible.")
 graphing_instruction = NoEscape("Sketch a graph of $y = f(x)$ for the following relations.")
+power_sign_instruction = NoEscape("Determine the sign of the result. If it evaluates to 0 or $\\pm 1$, evaluate it.")
 trig_instruction = NoEscape("Find the missing angle or side marked with a question mark.")
 
 trig_length_problems = ('side_sin', 'hyp_sin', 'side_cos', 'hyp_cos', 'side_tan')

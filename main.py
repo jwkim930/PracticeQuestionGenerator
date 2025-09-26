@@ -11,13 +11,13 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.TrigonometryProblem(7, (5, 20), arange=(20, 70), units=('cm', 'in', 'm', 'mm'))]
+    [problems.PowerSignPractice(100)]
 ]
-prob_names = ["Trigonometry"]
-prob_insts = [preset.trig_instruction]
-prob_cols = [1]
+prob_names = ["Power"]
+prob_insts = [preset.power_sign_instruction]
+prob_cols = [2]
 # If mix_up is True, questions are generated in mixed order for that section.
-mix_up = [True]
+mix_up = [False]
 title = "Grade 9 Review"   # ignored if there's only one section
 
 
