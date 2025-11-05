@@ -501,7 +501,7 @@ class MultiVariablePolynomial(BaseMathClass):
 
     def mix(self) -> Self:
         """
-        Mixes the order of the terms in the polynomial.
+        Mixes the order of the terms in place.
 
         :return: self for chained method calls
         """

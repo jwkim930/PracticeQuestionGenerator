@@ -11,19 +11,19 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.PowerSignPractice(100)]
+    [problems.FactorPolynomial(10, (-8, 8), var=preset.variables)]
 ]
-prob_names = ["Power"]
-prob_insts = [preset.power_sign_instruction]
-prob_cols = [2]
+prob_names = ["Factoring"]
+prob_insts = [preset.simplify_instruction]
+prob_cols = [1]
 # If mix_up is True, questions are generated in mixed order for that section.
 mix_up = [False]
-title = "Grade 9 Review"   # ignored if there's only one section
+title = "Power Review"   # ignored if there's only one section
 
 
 
 # Don't edit below
-if len({len(probs), len(prob_names), len(prob_insts), len(prob_cols)}) > 1:
+if len({len(probs), len(prob_names), len(prob_insts), len(prob_cols), len(mix_up)}) > 1:
     raise ValueError("the number of sections do not agree")
 nsec = len(probs)
 doc = Document(geometry_options={"paper": "letterpaper", "margin": "0.8in"})

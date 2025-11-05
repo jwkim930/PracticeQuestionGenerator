@@ -1632,19 +1632,19 @@ class FactorPolynomial(EquationMultiOperation):
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
 
-        number: single-variable polynomial with a common integer factor
-        symbol: two-variable polynomial with a common variable factor
-        twonum: two-variable polynomial with a common integer factor
-        numsym: two-variable polynomial with common integer and variable factors
-        mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
-        nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
-        quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
-        quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
-        quad_twosym: two-variable polynomial that can be factored into two binomials
-        square: a perfect square of a single-variable binomial
-        square_twosym: a perfect square of a two-variable binomial
-        diffsq: the difference of a perfect square monomial and a perfect square constant
-        quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
+        - number: single-variable polynomial with a common integer factor
+        - symbol: two-variable polynomial with a common variable factor
+        - twonum: two-variable polynomial with a common integer factor
+        - numsym: two-variable polynomial with common integer and variable factors
+        - mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
+        - nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
+        - quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
+        - quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
+        - quad_twosym: two-variable polynomial that can be factored into two binomials
+        - square: a perfect square of a single-variable binomial
+        - square_twosym: a perfect square of a two-variable binomial
+        - diffsq: the difference of a perfect square monomial and a perfect square constant
+        - quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
