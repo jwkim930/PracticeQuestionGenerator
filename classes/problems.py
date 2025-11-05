@@ -1897,6 +1897,8 @@ class QuadraticEquation(EquationMultiOperation):
          - fact_standard: ax^2 + bx + c = 0, can be solved by factoring
          - fact_separated: ax^2 + bx = c, can be solved by factoring
          - fact_double: ax^2 + bx + c = dx^2 + ex + f, can be solved by factoring
+         - stand_real: standard form with real, non-rational root(s)
+         - stand_none: standard form with no real roots
 
 
         :param num_quest: The number of questions to be generated.
@@ -1912,7 +1914,9 @@ class QuadraticEquation(EquationMultiOperation):
         super().__init__(num_quest, nrange, var=var, inequality=inequality)
         possible_types = ('fact_standard',
                           'fact_separated',
-                          'fact_double')
+                          'fact_double',
+                          'stand_real',
+                          'stand_none')
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
@@ -1974,7 +1978,34 @@ class QuadraticEquation(EquationMultiOperation):
                     rhs.append(Term(var, diff[i], 2-i))
                 lhs.remove_zeros().mix()
                 rhs.remove_zeros().mix()
-
+            case 'stand_real':
+                # just generate random quadratic polynomial and check discriminant
+                for i in range(100):
+                    a, b, c = self.draws(3, 0)
+                    if b**2 - 4*a*c >= 0:
+                        break
+                    if i == 99:
+                        raise ValueError(f"The nrange {self.nrange} cannot seem to generate a solvable equation")
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 2},
+                    {'coefficient': b, 'exponent': 1},
+                    {'coefficient': c, 'exponent': 0}
+                ], mix=True)
+                rhs = Number(0)
+            case 'stand_none':
+                # just generate random quadratic polynomial and check discriminant
+                for i in range(100):
+                    a, b, c = self.draws(3, 0)
+                    if b ** 2 - 4 * a * c < 0:
+                        break
+                    if i == 99:
+                        raise ValueError(f"The nrange {self.nrange} cannot seem to generate a solvable equation")
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 2},
+                    {'coefficient': b, 'exponent': 1},
+                    {'coefficient': c, 'exponent': 0}
+                ], mix=True)
+                rhs = Number(0)
         self.num_quest -= 1
         if random() < 0.5:
             return [Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())]

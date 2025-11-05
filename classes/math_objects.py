@@ -10,6 +10,9 @@ import numpy as np
 
 
 class BaseMathClass(ABC):
+    """
+    Must implement get_latex(). Concretely implements dumps() using get_latex().
+    """
     @abstractmethod
     def get_latex(self) -> list[LatexObject | NoEscape]:
         """

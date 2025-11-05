@@ -11,9 +11,9 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.FactorPolynomial(10, (-8, 8), var=preset.variables)]
+    [problems.QuadraticEquation(100, (-8, 8), 'stand_none', var=preset.variables)]
 ]
-prob_names = ["Factoring"]
+prob_names = ["Test"]
 prob_insts = [preset.simplify_instruction]
 prob_cols = [1]
 # If mix_up is True, questions are generated in mixed order for that section.
