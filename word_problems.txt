@@ -7,7 +7,7 @@ Each word problem follows the following format:
 Add '!' (without quotation) to the left of the name to signal the program.
 The content should mark the parameters by @ so that they can be replaced by appropriate values.
 Every element should be on its own line, and there should be no line between the elements.
-You may use LaTeX text formating for the content.
+You may use LaTeX text formating for the content. You may freely use the exclamation mark for the question text.
 
 #### 2D Shapes ####
 
@@ -49,3 +49,27 @@ A cube has the side length @ cm. What is its \textbf{\underline{surface area}} a
 !TriPrismSAV
 A triangular prism has the base length @ cm, base height @ cm, and the prism height @ cm. What is its \textbf{\underline{surface area}} and \textbf{\underline{volume}}?
 3
+
+!RectPyramidSAV
+You have a pyramid that is @ m tall. The base of the pyramid is a rectangle that is @ m wide and @ m long. What is its \textbf{\underline{surface area}} and \textbf{\underline{volume}}?
+3
+
+!RightTriPyramidV
+A triangular pyramid has a right triangular base, with the base length of @ cm and the base height of @ cm. The height of the pyramid is @ cm. What is its \textbf{\underline{volume}}?
+3
+
+!ConeSAV
+Consider a circular cone with the base radius @ cm and the height @ cm. Find its \textbf{\underline{surface area}} and \textbf{\underline{volume}}.
+2
+
+!SphereSAV
+What is the \textbf{\underline{surface area}} and \textbf{\underline{volume}} of a sphere with radius @ cm?
+1
+
+
+
+#### Scenario Based ####
+
+!ShotGaugeDiameter
+The size of a shotgun bore is measured in \textit{gauges}. The gauge number represents the number of lead balls that can be made with a pound of lead, where the diameter of the lead ball measures the bore size. For example, an 8-gauge shotgun has a bore that fits a lead ball that weighs 1/8 lb. Given that the density of lead is approximately 0.41 lb/in$^3$, what is the bore diameter of a @-gauge shotgun?
+1

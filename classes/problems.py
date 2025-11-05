@@ -2539,6 +2539,7 @@ class ExponentRulePractice(ProblemBase):
         self.num_quest -= 1
         return [Math(data=result, inline=True)]
 
+
 class PowerSignPractice(ProblemBase):
     def __init__(self, num_quest: int, *types: str):
         """

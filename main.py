@@ -11,7 +11,7 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.QuadraticEquation(100, (-8, 8), 'stand_none', var=preset.variables)]
+    [problems.WordProblem(100, '4cm', 'ShotGaugeDiameter', [(4, 20)])]
 ]
 prob_names = ["Test"]
 prob_insts = [preset.simplify_instruction]
