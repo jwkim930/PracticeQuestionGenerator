@@ -148,7 +148,7 @@ class Fraction(BaseMathEntity):
 
         :returns: The simplified fraction.
         """
-        sign = (self.sign * self.num * self.denom) // abs(self.num * self.denom)
+        sign = int(math.copysign(1, self.sign * self.num * self.denom))
         d = math.gcd(self.num, self.denom)
         return Fraction(abs(self.num // d), abs(self.denom // d), sign=sign, big=self.big, wrap=self.wrap)
 

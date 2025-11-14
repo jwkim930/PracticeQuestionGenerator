@@ -1759,7 +1759,7 @@ class FactorPolynomial(EquationMultiOperation):
 
                 terms = []
                 for exp in exps:
-                    terms.append(MultiVariableTerm(self.draw(1, -1), (var1, exp[0]), (var2, exp[1])))
+                    terms.append(MultiVariableTerm(self.draw(1, -1), (var1, exp[0]), (var2, exp[1]), hide_zero_exponent=True))
 
                 term = MultiVariableTerm(self.draw())
                 poly = MultiVariablePolynomial(terms) * term
@@ -1776,7 +1776,7 @@ class FactorPolynomial(EquationMultiOperation):
 
                 terms = []
                 for exp in exps:
-                    terms.append(MultiVariableTerm(self.draw(1, -1), (var1, exp[0]), (var2, exp[1])))
+                    terms.append(MultiVariableTerm(self.draw(1, -1), (var1, exp[0]), (var2, exp[1]), hide_zero_exponent=True))
 
                 e1 = randint(0, 3)
                 e2 = randint(0, 3)
@@ -1887,7 +1887,7 @@ class FactorPolynomial(EquationMultiOperation):
 
 class QuadraticEquation(EquationMultiOperation):
     def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str, var=('x',), inequality=False):
-        r"""
+        """
         Initializes a problem where a quadratic equation must be solved.
         The randomly generated numbers will never be 0.
         A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
@@ -2219,7 +2219,7 @@ class RadicalSimplify(ProblemBase):
         """
         return (n**(1/e)) % 1 > tol
 
-    def get_problem(self) -> Math:
+    def get_problem(self) -> list[Math]:
         e = randint(self.erange[0], self.erange[1])
         a = randint(self.nrange[0], self.nrange[1])
         while not RadicalSimplify.not_perfect_power(a, e):
@@ -2231,9 +2231,9 @@ class RadicalSimplify(ProblemBase):
 
         self.num_quest -= 1
         if e == 2:
-            return Math(inline=True, data=[Command("sqrt", a * b**e), "="])
+            return [Math(inline=True, data=[Command("sqrt", a * b**e), "="])]
         else:
-            return Math(inline=True, data=[Command("sqrt", a * b**e, e), "="])
+            return [Math(inline=True, data=[Command("sqrt", a * b**e, e), "="])]
 
 
 class QuadraticGraphingFactorable(GraphingProblem, FactorPolynomial):
@@ -2538,6 +2538,53 @@ class ExponentRulePractice(ProblemBase):
 
         self.num_quest -= 1
         return [Math(data=result, inline=True)]
+
+
+class RationalExponentPractice(ProblemBase):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], erange: tuple[int, int], *types: str, var: tuple[str, ...] = tuple()):
+        """
+        Initializes a problem where an expression involving
+        rational exponents needs to be simplified.
+
+        The possible problem types are (lowercase parameters are drawn from nrange,
+        uppercase parameters are drawn from erange, x and y are variables):
+         - eval_frac: (a^A)^{B/A}; A, B > 0
+         - eval_neg: (a/b)^{-A}; A > 0
+         - eval_nfrac: {(a/b)^A}^{B/A}; A != 0
+         - simp_multdiv: \frac{x^{A/B}y^{C/D}x^{E/F}}{y^{G/H}x^{I/J}y^{K/L}};
+                         denominators != 0 and have a 50% chance of being 1
+         - simp_multdivdist: simp_multdiv but raised to a fractional exponent; denominator has a 50% chance of being 1
+
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for generating problem parameters, (begin, end) inclusive.
+        :param erange: The range for generating exponents in the problems, (begin, end) inclusive.
+        :param types: The problem types to be chosen from. If omitted, any problem can be chosen.
+        :param var: The variable candidates for the problems. Only used for some problem types, ignored otherwise.
+                    If omitted, a minimal set will be chosen based on the selected types.
+        """
+        super().__init__(num_quest, '2cm')
+        possible_types = ('simp_multdiv',)
+        nvar = 0
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"problem type {t} is not recognized; refer to docstring for possible types")
+            if t in ['simp_multdiv', 'simp_multdivdist']:
+                nvar = max(nvar, 2)
+        if not types:
+            types = possible_types
+        self.types = types
+        if var and len(var) < nvar:
+            raise ValueError("the chosen problem types require more than the provided variables")
+        elif nvar > 0:
+            self.var = ('x', 'y')[:nvar]
+
+    def get_problem(self) -> list[Math]:
+        prob_type = choice(self.types)
+
+        match prob_type:
+            case 'simp_multdiv':
+                pass
 
 
 class PowerSignPractice(ProblemBase):
