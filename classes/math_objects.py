@@ -6,9 +6,13 @@ import math
 
 from pylatex import Command, NoEscape
 from pylatex.base_classes import LatexObject
+import numpy as np
 
 
 class BaseMathClass(ABC):
+    """
+    Must implement get_latex(). Concretely implements dumps() using get_latex().
+    """
     @abstractmethod
     def get_latex(self) -> list[LatexObject | NoEscape]:
         """
@@ -281,6 +285,25 @@ class Number(BaseMathEntity):
     def __hash__(self):
         return hash((self.sign, self.mag, self.wrap))
 
+    def __abs__(self) -> "Number":
+        if self < 0:
+            return -self
+        else:
+            return Number(self)
+
+    def __truediv__(self, other) -> "Number":
+        if isinstance(other, (int, float, Decimal)):
+            if other == 0:
+                raise ZeroDivisionError("Number divided by 0")
+            return Number(self.get_signed() * other)
+        elif isinstance(other, Number):
+            if other == 0:
+                raise ZeroDivisionError("Number divided by 0")
+            return Number(self.get_signed() / other.get_signed())
+        else:
+            return NotImplemented
+
+
 
 class MultiVariableTerm(BaseMathEntity):
     def __init__(self, coefficient: NumberArgument, *variables: tuple[str, NumberArgument], hide_zero_exponent=False):
@@ -350,6 +373,9 @@ class MultiVariableTerm(BaseMathEntity):
 
     __rmul__ = __mul__
 
+    def __len__(self) -> int:
+        return len(self.variables)
+
     def get_latex(self) -> list[NoEscape]:
         result = []
         if self.get_signed_coefficient() == -1:
@@ -400,7 +426,18 @@ class MultiVariablePolynomial(BaseMathClass):
             self.mix()
         self.wrap = wrap
 
-    def __mul__(self, other):
+    def __add__(self, other) -> Self:
+        if isinstance(other, MultiVariableTerm):
+            return MultiVariablePolynomial(self.terms + [other], wrap=self.wrap)
+        if isinstance(other, (int, float, Decimal, Number)):
+            return MultiVariablePolynomial(self.terms + [MultiVariableTerm(other)], wrap=self.wrap)
+        if isinstance(other, MultiVariablePolynomial):
+            return MultiVariablePolynomial(self.terms + other.terms, wrap=self.wrap or other.wrap)
+        return NotImplemented
+
+    __radd__ = __add__
+
+    def __mul__(self, other) -> Self:
         if isinstance(other, MultiVariableTerm) or type(other) in (int, float, Decimal, Number):
             terms = self.terms.copy()
             for i in range(len(terms)):
@@ -418,6 +455,8 @@ class MultiVariablePolynomial(BaseMathClass):
     __rmul__ = __mul__
 
     def get_latex(self) -> list[Command | NoEscape]:
+        if not self.terms:
+            return []
         result = []
         if self.wrap:
             result.append(Command("left("))
@@ -452,10 +491,10 @@ class MultiVariablePolynomial(BaseMathClass):
         """
         return self.terms.pop(index)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.terms)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> MultiVariableTerm:
         return self.terms[index]
 
     def __setitem__(self, index, value):
@@ -465,7 +504,7 @@ class MultiVariablePolynomial(BaseMathClass):
 
     def mix(self) -> Self:
         """
-        Mixes the order of the terms in the polynomial.
+        Mixes the order of the terms in place.
 
         :return: self for chained method calls
         """
@@ -479,12 +518,48 @@ class MultiVariablePolynomial(BaseMathClass):
         :returns: self for chained method calls
         """
         i = 0
-        while i < len(self.terms):
+        while i < len(self):
             term = self.terms[i]
             if term.coefficient == 0:
                 self.terms.pop(i)
                 i -= 1   # adjust index
             i += 1
+        return self
+
+    def simplify(self) -> Self:
+        """
+        Simplifies the polynomial in place, combining like terms.
+
+        :returns: self for chained method calls
+        """
+        self.remove_zeros()
+        # reorder variables within terms in alphabetical ordering
+        for term in self.terms:
+            term.variables.sort(key=lambda t: t[0])
+            # if there are duplicate variables, combine them
+            i = 0
+            while i + 1 < len(term):
+                if term.variables[i][0] == term.variables[i+1][0]:
+                    term.variables[i] = term.variables[i][0], (term.variables[i][1] + term.variables.pop(i+1)[1])
+                    i -= 1   # adjust index
+                i += 1
+        # sort terms by lexicographic ordering
+        self.terms.sort(key=lambda t: (-sum((tt[1] for tt in t.variables), Number(0)), [(va[0], -va[1]) for va in t.variables]))
+        # combine like terms and remove if they cancel out
+        i = 0
+        while 0 < i + 1 < len(self):
+            if self[i].variables == self[i+1].variables:
+                # combine coefficients, remembering the sign is taken out
+                new = self[i].get_signed_coefficient() + self[i+1].get_signed_coefficient()
+                self[i].sign = new.sign
+                self[i].coefficient = abs(new)
+                self.pop(i+1)
+                if self[i].coefficient == 0:
+                    self.pop(i)
+                    i -= 1   # adjust index
+                i -= 1   # adjust index
+            i += 1
+
         return self
 
 
@@ -599,18 +674,20 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
         degree = float('-inf')
         for t in data:
             if isinstance(t, Term):
-                if self.variable != t.get_variable():
+                coef = t.get_signed_coefficient()
+                exp = t.get_exponent()
+                if variable != t.get_variable():
                     raise ValueError("Polynomial variable doesn't agree with term variable")
-                if not t.get_exponent().is_int():
+                if not exp.is_int():
                     raise ValueError("Exponent must be integer for SingleVariablePolynomial")
-                terms.append(t)
+                terms.append(Term(variable, coef, int(exp)))
             else:
                 if not Number(t["exponent"]).is_int():
                     raise ValueError("Exponent must be integer for SingleVariablePolynomial")
                 terms.append(Term.from_dict(variable, t))
             if terms[-1].variables:
                 degree = max(degree, int(terms[-1].get_exponent()))
-        self.degree = degree if isinstance(degree, int) else 0
+        self._degree = degree if isinstance(degree, int) else 0
         super().__init__(terms, mix, wrap)
 
     @staticmethod
@@ -631,7 +708,20 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
                 raise ValueError(f"Different variables seen: {s.get_variable()} and {terms[-1].get_variable()}")
         return SingleVariablePolynomial(terms[0].get_variable(), terms, wrap=poly.wrap)
 
-    def __mul__(self, other):
+    @property
+    def degree(self) -> int:
+        return self._degree
+
+    def __add__(self, other) -> Self:
+        if ((isinstance(other, Term) and self.variable == other.get_variable()) or
+            (isinstance(other, SingleVariablePolynomial) and self.variable == other.variable) or
+            isinstance(other, (int, float, Decimal, Number))):
+            return SingleVariablePolynomial.singlify(super().__add__(other))
+        return super().__add__(other)
+
+    __radd__ = __add__
+
+    def __mul__(self, other) -> Self:
         if ((isinstance(other, SingleVariablePolynomial) and self.variable == other.variable) or
             (isinstance(other, Term) and self.variable == other.get_variable()) or
             type(other) in (int, float, Decimal, Number)
@@ -642,6 +732,95 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
 
     __rmul__ = __mul__
 
+    def __divmod__(self, other) -> tuple[Self, Self]:
+        if not isinstance(other, SingleVariablePolynomial):
+            return NotImplemented
+        if self.variable != other.variable:
+            raise ValueError(f"variables do not agree between operands: {self.variable} and {other.variable}")
+
+        var = self.variable
+        # copy operands to simplify
+        dividend = SingleVariablePolynomial(var, self.terms).simplify()
+        divisor = SingleVariablePolynomial(var, other.terms).simplify()
+        wrap = self.wrap or other.wrap   # wrap unless both don't
+        if dividend.degree < divisor.degree:
+            # quotient is 0 and the remainder is the entire dividend
+            dividend.wrap = wrap
+            return SingleVariablePolynomial(var, [Term(var, 0, 0)], wrap=wrap), dividend
+        if len(divisor) == 0:
+            raise ArithmeticError("division by empty polynomial")
+        if len(divisor) == 1:
+            # monomial division
+            d = divisor[0]
+            if not isinstance(d, Term):
+                raise AssertionError("divisor contained a MultiVariableTerm, not Term")
+            i = 0
+            t = dividend[i]
+            while isinstance(t, Term) and t.get_exponent() >= d.get_exponent():
+                dividend[i] = Term(var,
+                                   t.get_signed_coefficient() / d.get_signed_coefficient(),
+                                   t.get_exponent() - d.get_exponent())
+                i += 1
+                try:
+                    t = dividend[i]
+                except IndexError:
+                    break
+            quotient = SingleVariablePolynomial(var, dividend.terms[:i])
+            remainder = SingleVariablePolynomial(var, dividend.terms[i:])
+            return quotient, remainder
+
+        # otherwise, use synthetic division
+        # https://en.wikipedia.org/wiki/Synthetic_division#Compact_Expanded_Synthetic_Division
+        above_bar = np.zeros((1, dividend.degree + 1), dtype=object)   # 2D array to expand above later
+        for t in dividend.terms:
+            if isinstance(t, Term):
+                above_bar[0, dividend.degree - int(t.get_exponent())] = t.get_signed_coefficient()
+            else:
+                raise AssertionError("dividend contained a MultiVariableTerm, not Term")
+        lead = divisor[0].get_signed_coefficient()   # normalizing factor
+        left = np.zeros(divisor.degree, dtype=object)   # negated divisor coefficients except the first
+        for t in divisor.terms[1:]:
+            if isinstance(t, Term):
+                left[divisor.degree - int(t.get_exponent()) - 1] = -t.get_signed_coefficient()
+            else:
+                raise AssertionError("divisor contained a MultiVariableTerm, not Term")
+        right_of_bar = dividend.degree + 1 - left.size   # everything in above_bar at index >= this is to the right of the bar
+        bottom = np.zeros(dividend.degree + 1, dtype=object)
+        for i in range(dividend.degree + 1):
+            q = sum(above_bar[:, i])
+            if i >= right_of_bar:
+                # this is a remainder, drop down without normalizing
+                bottom[i] = q
+            else:
+                # this is a quotient, normalize and prepare the next products
+                bottom[i] = q / lead
+                if q != 0:
+                    # add the product row above the array
+                    new_row = np.zeros((1, dividend.degree + 1), dtype=object)
+                    new_row[0, i+1 : i+1+left.size] = bottom[i] * left
+                    above_bar = np.vstack((new_row, above_bar))
+        quotient = SingleVariablePolynomial(var, [], wrap=wrap)
+        quotient_degree = right_of_bar - 1
+        remainder = SingleVariablePolynomial(var, [], wrap=wrap)
+        for i in range(bottom.size):
+            if bottom[i] == 0:
+                continue
+            if i < right_of_bar:
+                quotient.append(Term(var, bottom[i], quotient_degree - i))
+            else:
+                remainder.append(Term(var, bottom[i], bottom.size - i - 1))
+        return quotient, remainder
+
+    def __floordiv__(self, other) -> Self:
+        if not isinstance(other, SingleVariablePolynomial):
+            return NotImplemented
+        return divmod(self, other)[0]
+
+    def __mod__(self, other) -> Self:
+        if not isinstance(other, SingleVariablePolynomial):
+            return NotImplemented
+        return divmod(self, other)[1]
+
     def append(self, term: Term):
         """
         Adds the term to the end of the polynomial.
@@ -651,7 +830,7 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
             raise ValueError("Term with different variable appended to SingleVariablePolynomial")
         super().append(term)
         if term.variables:
-            self.degree = max(self.degree, int(term.get_exponent()))
+            self._degree = max(self._degree, int(term.get_exponent()))
 
     def change_variable(self, new_var: str) -> Self:
         """
@@ -667,6 +846,27 @@ class SingleVariablePolynomial(MultiVariablePolynomial):
             else:
                 raise ValueError("SingleVariablePolynomial contained a MultiVariableTerm, not Term")
         return self
+
+    def _update_degree(self) -> Self:
+        self._degree = float('-inf')   # reset degree
+        for t in self.terms:
+            if isinstance(t, Term):
+                if t.variables:
+                    self._degree = max(self._degree, int(t.get_exponent()))
+            else:
+                raise AssertionError("SingleVariablePolynomial contained something other than Term")
+        if isinstance(self._degree, float):
+            # no term, set degree to 0
+            self._degree = 0
+        return self
+
+    def remove_zeros(self) -> Self:
+        # override to update degree
+        return super().remove_zeros()._update_degree()
+
+    def simplify(self) -> Self:
+        # override to update degree
+        return super().simplify()._update_degree()
 
 class PolynomialFraction(BaseMathClass):
     def __init__(self, num: SingleVariablePolynomial, denom: SingleVariablePolynomial, sign=1, wrap=False):

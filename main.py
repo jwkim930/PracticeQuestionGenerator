@@ -11,21 +11,23 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.TrigonometryProblem(50, (5, 10))]
+    [problems.WordProblem(100, '4cm', 'ShotGaugeDiameter', [(4, 20)])]
 ]
-prob_names = ["Trigonometry"]
-prob_insts = [preset.trig_instruction]
+prob_names = ["Test"]
+prob_insts = [preset.simplify_instruction]
 prob_cols = [1]
 # If mix_up is True, questions are generated in mixed order for that section.
 mix_up = [False]
-title = "Grade 9 Review"   # ignored if there's only one section
+title = "Power Review"   # ignored if there's only one section
+
+
 
 # Don't edit below
-if len({len(probs), len(prob_names), len(prob_insts), len(prob_cols)}) > 1:
+if len({len(probs), len(prob_names), len(prob_insts), len(prob_cols), len(mix_up)}) > 1:
     raise ValueError("the number of sections do not agree")
 nsec = len(probs)
 doc = Document(geometry_options={"paper": "letterpaper", "margin": "0.8in"})
-doc.packages.append(Package("graphicx"))
+doc.packages.append(Package("graphicx,tikz"))
 if nsec == 1:
     title = prob_names[0] + " Practice"
 doc.preamble.append(Command("usetikzlibrary", "angles,quotes,calc"))
@@ -40,7 +42,8 @@ def print_problems(i: int):
             q += 1
             probi = randint(0, len(probs[i]) - 1) if mix_up[i] else 0
             prob = probs[i][probi]
-            with doc.create(Subsection(f"Q {i+1}.{q}", False)):
+            qnum = f"Q {i+1}.{q}" if nsec > 1 else f"Q{q}"
+            with doc.create(Subsection(qnum, False)):
                 with doc.create(MiniPage()):
                     for elem in prob.get_problem():
                         if isinstance(elem, problems.DocInjector):

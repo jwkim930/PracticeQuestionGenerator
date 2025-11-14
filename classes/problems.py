@@ -3,15 +3,12 @@ from decimal import Decimal
 from abc import ABC, abstractmethod
 
 from typing import Callable
-from pylatex import Math, Command, Tabular, MiniPage, Document, VerticalSpace, StandAloneGraphic, TikZ, Axis, Plot, \
-    TikZDraw, TikZCoordinate
-from pylatex.base_classes import Environment, CommandBase
+from pylatex import Math, Command, Tabular, MiniPage, Document, VerticalSpace, StandAloneGraphic, TikZ, Axis, Plot, TikZDraw
+from pylatex.base_classes import CommandBase
 from pylatex.utils import NoEscape
 import math
 import numpy as np
 import sympy as sp
-import os  # remove later
-from pathlib import Path   # remove later
 
 from classes.math_objects import *
 
@@ -83,7 +80,7 @@ class BinaryOperation(ProblemBase, ABC):
         :return: The two generated operands in a tuple.
         """
         ops = [self.generator() for _ in range(2)]
-        if self.neg:
+        if self.neg and -1 not in [ops[0].sign, ops[2].sign]:
             neg_i = randint(0, 1)
             other_i = 1 - neg_i
             ops[neg_i] = -ops[neg_i]
@@ -105,15 +102,67 @@ class IntegerBinaryOperation(BinaryOperation):
         :param num_quest: The number of questions to be generated.
         :param operand: The operand to be used, such as + or \\times.
         :param orange: The range for the operands, (begin, end) inclusive.
-                       If the range includes a negative number, using neg=True may not produce
-                       negative operands because a negative operand might be negated again.
         :param neg: If True, at least one of the operands will be negative.
         """
         super().__init__(num_quest, operand, neg)
         self.orange = orange
 
     def generator(self) -> Number:
-        return Number(randint(self.orange[0], self.orange[1]))
+        return Number(randint(self.orange[0], self.orange[1]), True)
+
+
+class IntegerAddition(IntegerBinaryOperation):
+    def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
+        """
+        :param num_quest: The number of questions to be generated.
+        :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "+", orange, neg)
+
+
+class IntegerSubtraction(IntegerBinaryOperation):
+    def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
+        """
+        :param num_quest: The number of questions to be generated.
+        :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "-", orange, neg)
+
+class IntegerMultiplication(IntegerBinaryOperation):
+    def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
+        """
+        :param num_quest: The number of questions to be generated.
+        :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, Command("times"), orange, neg)
+
+class IntegerDivision(IntegerBinaryOperation):
+    def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
+        """
+        :param num_quest: The number of questions to be generated.
+        :param orange: The range for the operands, (begin, end) inclusive.
+                       If the range includes a negative number, using neg=True may not produce
+                       negative operands because a negative operand might be negated again.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        if orange[0] == orange[1] and orange[0] == 0:
+            raise ValueError("the given orange cannot generate a non-zero operand")
+        super().__init__(num_quest, Command("div"), orange, neg)
+
+    def generator(self) -> Number:
+        result = 0
+        while result == 0:
+            result = super().generator()
+        return result
 
 
 class FractionBinaryOperation(BinaryOperation):
@@ -138,19 +187,36 @@ class FractionBinaryOperation(BinaryOperation):
         return self.generate_random_fraction(self.nrange, self.drange, self.no1)
 
     @staticmethod
-    def generate_random_fraction(nrange, drange, no1=True) -> Fraction:
+    def generate_random_fraction(nrange: tuple[int, int], drange: tuple[int, int], no1=True) -> Fraction:
         """
         Generates a fraction with random numerator and denominator.
+        The numerator and the denominator will never be 0.
+
         :param nrange: The range for numerator, (begin, end) inclusive.
         :param drange: The range for denominator, (begin, end) inclusive.
         :param no1: If True, the numerator and the denominator are always different.
         """
+        if nrange[0] == nrange[1]:
+            if nrange[0] == 0:
+                raise ValueError("nrange must contain a non-zero integer")
+            if no1 and nrange == drange:
+                raise ValueError("nrange and drange can only generate the same number but no1 used")
+        if drange[0] == drange[1] and drange[0] == 0:
+            raise ValueError("drange must contain a non-zero integer")
+
         n = randint(nrange[0], nrange[1])
+        while n == 0:
+            n = randint(nrange[0], nrange[1])
         d = randint(drange[0], drange[1])
+        while d == 0:
+            d = randint(drange[0], drange[1])
+        sign = int(math.copysign(1, n * d))
+        n = abs(n)
+        d = abs(d)
         if no1:
-            while d == n:
-                d = randint(drange[0], drange[1])
-        return Fraction(n, d)
+            while d == n or d == 0:
+                d = abs(randint(drange[0], drange[1]))
+        return Fraction(n, d, sign, wrap=True)
 
 
 class FractionAddition(FractionBinaryOperation):
@@ -207,6 +273,198 @@ class FractionDivision(FractionBinaryOperation):
         :param neg: If True, at least one of the operands will be negative.
         """
         super().__init__(num_quest, Command('div'), nrange, drange, no1, neg)
+
+
+class DecimalBinaryOperation(BinaryOperation):
+    def __init__(self, num_quest: int, operand: str | Command, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are used for calculation.
+
+        :param num_quest: The number of questions to be generated.
+        :param operand: The operand to be used, such as + or \\times.
+        :param nrange: The range for the operands, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        if prange[0] > prange[1] or prange[0] < 0:
+            raise ValueError("Invalid prange given: " + str(prange))
+        super().__init__(num_quest, operand, neg)
+        self.nrange = Number(nrange[0]), Number(nrange[1])
+        self.prange = prange
+
+    def generator(self) -> Number:
+        p = randint(self.prange[0], self.prange[1])
+        start = math.ceil(self.nrange[0].get_signed() * (10**p))
+        end = math.floor(self.nrange[1].get_signed() * (10**p))
+        n = randint(start, end) / Decimal(10**p)
+        return Number(n, wrap=True)
+
+
+class DecimalAddition(DecimalBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are added.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for the operand base, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "+", nrange, prange, neg)
+
+
+class DecimalSubtraction(DecimalBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are subtracted.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for the operand base, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, "-", nrange, prange, neg)
+
+
+class DecimalMultiplication(DecimalBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are multiplied.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for the operand base, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        super().__init__(num_quest, Command("times"), nrange, prange, neg)
+
+
+class DecimalDivision(DecimalBinaryOperation):
+    def __init__(self, num_quest: int, nrange: tuple[NumberArgument, NumberArgument], prange: tuple[int, int], neg=False):
+        """
+        Initializes a problem where two decimal numbers are divided.
+        The operands will never be 0, so nrange must be able to generate a non-zero number.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range for the operand base, (begin, end) inclusive.
+        :param prange: The range for operand precision, (begin, end) inclusive.
+                       Can only contain non-negative numbers.
+        :param neg: If True, at least one of the operands will be negative.
+        """
+        if nrange[0] == nrange[1] and nrange[0] == 0:
+            raise ValueError(f"The given nrange of {nrange} cannot generate a non-zero number")
+        super().__init__(num_quest, Command("div"), nrange, prange, neg)
+
+    def generator(self) -> Number:
+        n = 0
+        while n == 0:
+            n = super().generator()
+        return n
+
+
+class BEDMASPractice(ProblemBase):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str):
+        """
+        Initializes problems where an expression needs to be simplified using BEDMAS.
+
+        Here are the possible problem types:
+         - simple: a (o1) b (o2) c, where o1, o2 are + and * in random order
+         - brackets: (a + b) * c
+         - exponent: a * b^c, c = 2 or 3
+         - nested_brackets: (a * (b + c)) / d
+         - complex: (a + b)^c * d + e / f, c = 2 or 3, e/f may be on the left side
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for integer values, (begin, end) inclusive.
+                       Must contain at least two different integers.
+        :param types: The problem types to be chosen from. If omitted, all types will be allowed.
+        """
+        if (nrange[0] > nrange[1]) or (nrange[0] == nrange[1]):
+            raise ValueError("nrange must contain at least two distinct integers. nrange given: " + str(nrange))
+        possible_types = (
+            "simple",
+            "brackets",
+            "exponent",
+            "nested_brackets",
+            "complex"
+        )
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"the problem type {t} is not valid")
+        if not types:
+            types = possible_types
+        super().__init__(num_quest, "0cm")
+        self.nrange = nrange
+        self.types = types
+
+    def get_problem(self) -> list[Math]:
+        def draw_n(*blacklist: int) -> int:
+            candidates = [n for n in range(self.nrange[0], self.nrange[1] + 1) if n not in blacklist]
+            if not candidates:
+                raise ValueError("No possible values after removing blacklist elements")
+            return choice(candidates)
+
+        prob_type = choice(self.types)
+        result = []
+
+        match prob_type:
+            case "simple":
+                a, b, c = draw_n(), draw_n(), draw_n()
+                if random() < 0.5:
+                    # times first
+                    result.extend([str(a), Command("times")])
+                    result.extend(UnsafePolynomial(Number(b, wrap=True), Number(c)).get_latex())
+                else:
+                    # times last
+                    result.extend(UnsafePolynomial(Number(a), Number(b)).get_latex())
+                    result.append(Command("times"))
+                    result.extend(Number(c, wrap=True).get_latex())
+            case "brackets":
+                a, b, c = draw_n(), draw_n(), draw_n()
+                result.append(Command("left("))
+                result.extend(UnsafePolynomial(Number(a), Number(b)).get_latex())
+                result.extend([Command("right)"), Command("times")])
+                result.extend(Number(c, wrap=True).get_latex())
+            case "exponent":
+                a, b, c = draw_n(), draw_n(0, 1), randint(2, 3)
+                result.extend(Number(a, wrap=True).get_latex())
+                result.append(Command("times"))
+                result.extend(SingleVariablePolynomial(Number(b, wrap=True).dumps(), [{"coefficient": 1, "exponent": c}]).get_latex())
+            case "nested_brackets":
+                a, b, c, d = draw_n(), draw_n(), draw_n(), draw_n(0)
+                result.extend([Command("left("), a, Command("times")])
+                result.append(Command("left("))
+                result.extend(UnsafePolynomial(Number(b), Number(c)).get_latex())
+                result.extend([Command("right)"), Command("right)"), Command("div")])
+                result.extend(Number(d, wrap=True).get_latex())
+            case "complex":
+                a, b, c, d, e, f = draw_n(), draw_n(), randint(2, 3), draw_n(), draw_n(), draw_n(0)
+                left = []
+                right = []
+                left.append(Command("left("))
+                left.extend(UnsafePolynomial(Number(a), Number(b)).get_latex())
+                left.extend([Command("right)"), NoEscape("^"), c])
+                right.extend(Number(e, wrap=True).get_latex())
+                right.append(Command("div"))
+                right.extend(Number(f, wrap=True).get_latex())
+
+                if random() < 0.5:
+                    result.extend(left)
+                    result.append(choice("+-"))
+                    result.extend(right)
+                else:
+                    result.extend(right)
+                    result.append(choice("+-"))
+                    result.extend(left)
+
+        result.append(NoEscape("="))
+
+        self.num_quest -= 1
+        return [Math(data=result, inline=True)]
 
 
 class WordProblem(ProblemBase):
@@ -1374,19 +1632,19 @@ class FactorPolynomial(EquationMultiOperation):
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
 
-        number: single-variable polynomial with a common integer factor
-        symbol: two-variable polynomial with a common variable factor
-        twonum: two-variable polynomial with a common integer factor
-        numsym: two-variable polynomial with common integer and variable factors
-        mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
-        nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
-        quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
-        quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
-        quad_twosym: two-variable polynomial that can be factored into two binomials
-        square: a perfect square of a single-variable binomial
-        square_twosym: a perfect square of a two-variable binomial
-        diffsq: the difference of a perfect square monomial and a perfect square constant
-        quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
+        - number: single-variable polynomial with a common integer factor
+        - symbol: two-variable polynomial with a common variable factor
+        - twonum: two-variable polynomial with a common integer factor
+        - numsym: two-variable polynomial with common integer and variable factors
+        - mquad: quadratic polynomial that can be factored into two binomials, leading coefficient is 1
+        - nquad: quadratic polynomial that can be factored into two binomials, leading coefficient is +-1 (50/50 chance)
+        - quad: quadratic polynomial that can be factored into two binomials, leading coefficient isn't +-1
+        - quad_numsym: two-variable polynomial that can be factored to a monomial and two binomials in same variables
+        - quad_twosym: two-variable polynomial that can be factored into two binomials
+        - square: a perfect square of a single-variable binomial
+        - square_twosym: a perfect square of a two-variable binomial
+        - diffsq: the difference of a perfect square monomial and a perfect square constant
+        - quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -1639,6 +1897,8 @@ class QuadraticEquation(EquationMultiOperation):
          - fact_standard: ax^2 + bx + c = 0, can be solved by factoring
          - fact_separated: ax^2 + bx = c, can be solved by factoring
          - fact_double: ax^2 + bx + c = dx^2 + ex + f, can be solved by factoring
+         - stand_real: standard form with real, non-rational root(s)
+         - stand_none: standard form with no real roots
 
 
         :param num_quest: The number of questions to be generated.
@@ -1654,7 +1914,9 @@ class QuadraticEquation(EquationMultiOperation):
         super().__init__(num_quest, nrange, var=var, inequality=inequality)
         possible_types = ('fact_standard',
                           'fact_separated',
-                          'fact_double')
+                          'fact_double',
+                          'stand_real',
+                          'stand_none')
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
@@ -1716,7 +1978,34 @@ class QuadraticEquation(EquationMultiOperation):
                     rhs.append(Term(var, diff[i], 2-i))
                 lhs.remove_zeros().mix()
                 rhs.remove_zeros().mix()
-
+            case 'stand_real':
+                # just generate random quadratic polynomial and check discriminant
+                for i in range(100):
+                    a, b, c = self.draws(3, 0)
+                    if b**2 - 4*a*c >= 0:
+                        break
+                    if i == 99:
+                        raise ValueError(f"The nrange {self.nrange} cannot seem to generate a solvable equation")
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 2},
+                    {'coefficient': b, 'exponent': 1},
+                    {'coefficient': c, 'exponent': 0}
+                ], mix=True)
+                rhs = Number(0)
+            case 'stand_none':
+                # just generate random quadratic polynomial and check discriminant
+                for i in range(100):
+                    a, b, c = self.draws(3, 0)
+                    if b ** 2 - 4 * a * c < 0:
+                        break
+                    if i == 99:
+                        raise ValueError(f"The nrange {self.nrange} cannot seem to generate a solvable equation")
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 2},
+                    {'coefficient': b, 'exponent': 1},
+                    {'coefficient': c, 'exponent': 0}
+                ], mix=True)
+                rhs = Number(0)
         self.num_quest -= 1
         if random() < 0.5:
             return [Math(inline=True, data=lhs.get_latex() + [middle] + rhs.get_latex())]
@@ -2249,6 +2538,108 @@ class ExponentRulePractice(ProblemBase):
 
         self.num_quest -= 1
         return [Math(data=result, inline=True)]
+
+
+class PowerSignPractice(ProblemBase):
+    def __init__(self, num_quest: int, *types: str):
+        """
+        Initializes problems where the sign of the evaluated value needs to be determined.
+        Here are the possible problem types:
+         - single: one number, no multiplication involved (e.g. -4^2)
+         - multiple: multiple numbers multiplied
+         - multiple_raised: multiple numbers multiplied, the whole thing exponentiated
+
+        :param num_quest: The number of questions to be generated.
+        :param types: The problem types to be chosen from. If omitted, all types will be allowed.
+        """
+        super().__init__(num_quest, "0cm")
+        possible_types = ('single', 'multiple', 'multiple_raised')
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"the problem type {t} is not valid")
+        if not types:
+            types = possible_types
+        self.types = types
+
+    def get_problem(self) -> list[Math]:
+        prob_type = choice(self.types)
+        result = []
+
+        match prob_type:
+            case 'single':
+                base = randint(1, 9)
+                exponent = randint(0, 9)
+                key = random()
+                if key < 0.2:
+                    # 4^2 or (4^2)
+                    result.append(NoEscape(f"{base}^{{{exponent}}}"))
+                    if random() < 0.5:
+                        result.insert(0, Command("left("))
+                        result.append(Command("right)"))
+                elif key < 0.4:
+                    # (-4)^2
+                    result.append(NoEscape(f"(-{base})^{{{exponent}}}"))
+                elif key < 0.6:
+                    # -4^2 or (-4^2)
+                    result.append(NoEscape(f"-{base}^{{{exponent}}}"))
+                    if random() < 0.5:
+                        result.insert(0, Command("left("))
+                        result.append(Command("right)"))
+                elif key < 0.8:
+                    # -(-4)^2
+                    result.append(NoEscape(f"-(-{base})^{{{exponent}}}"))
+                else:
+                    # -(4)^2
+                    result.append(NoEscape(f"-({base})^{{{exponent}}}"))
+            case 'multiple':
+                n = randint(2, 5)
+                for _ in range(n):
+                    base = randint(1, 9)
+                    exponent = randint(0, 9)
+                    key = random()
+                    if key < 0.25:
+                        # 4^2
+                        result.append(NoEscape(f"{base}^{{{exponent}}}"))
+                        result.append(Command("cdot"))
+                    elif key < 0.5:
+                        # (4)^2
+                        result.extend([Command("left("), base, Command("right)"), NoEscape(f"^{{{exponent}}}"), Command("cdot")])
+                    elif key < 0.75:
+                        # (-4^2)
+                        result.extend([Command("left("), -base, NoEscape(f"^{{{exponent}}}"), Command("right)"), Command("cdot")])
+                    else:
+                        # (-4)^2
+                        result.extend([Command("left("), -base, Command("right)"), NoEscape(f"^{{{exponent}}}"), Command("cdot")])
+                result.pop(-1)   # remove the last cdot
+            case 'multiple_raised':
+                n = randint(2, 5)
+                result.append(Command("left("))
+                for _ in range(n):
+                    base = randint(1, 9)
+                    exponent = randint(0, 9)
+                    key = random()
+                    if key < 0.25:
+                        # 4^2
+                        result.append(NoEscape(f"{base}^{{{exponent}}}"))
+                        result.append(Command("cdot"))
+                    elif key < 0.5:
+                        # (4)^2
+                        result.extend(
+                            [Command("left("), base, Command("right)"), NoEscape(f"^{{{exponent}}}"), Command("cdot")])
+                    elif key < 0.75:
+                        # (-4^2)
+                        result.extend(
+                            [Command("left("), -base, NoEscape(f"^{{{exponent}}}"), Command("right)"), Command("cdot")])
+                    else:
+                        # (-4)^2
+                        result.extend(
+                            [Command("left("), -base, Command("right)"), NoEscape(f"^{{{exponent}}}"), Command("cdot")])
+                result.pop(-1)   # remove the last cdot
+                result.append(Command("right)"))
+                result.append(NoEscape(f"^{{{randint(0, 9)}}}"))
+
+        self.num_quest -= 1
+        return [Math(inline=True, data=result)]
 
 
 class TrigonometryProblem(ProblemBase):
