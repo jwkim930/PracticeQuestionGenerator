@@ -11,15 +11,13 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.TrigonometryProblem(10, (5, 13))],
-    [problems.RadicalSimplify(10, (2, 8), (2, 4))],
-    [problems.FactorPolynomial(10, (-9, 9), 'numsym', 'nquad', 'quad', 'quad_twosym', 'square', 'diffsq', 'quad_combine', var=preset.variables)]
+    [problems.RationalExponentPractice(100, (-9, 9), (-9, 9))]
 ]
-prob_names = ["Trigonometry", "Radical Expression", "Factoring"]
-prob_insts = [preset.trig_instruction, preset.simplify_instruction, preset.simplify_instruction]
-prob_cols = [2, 3, 1]
+prob_names = ["Test"]
+prob_insts = [preset.simplify_instruction]
+prob_cols = [1]
 # If mix_up is True, questions are generated in mixed order for that section.
-mix_up = [False, False, False]
+mix_up = [False]
 title = "Midterm Review"   # ignored if there's only one section
 
 

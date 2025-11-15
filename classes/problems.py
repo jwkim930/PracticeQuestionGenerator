@@ -2551,14 +2551,16 @@ class RationalExponentPractice(ProblemBase):
          - eval_frac: (a^A)^{B/A}; A, B > 0
          - eval_neg: (a/b)^{-A}; A > 0
          - eval_nfrac: {(a/b)^A}^{B/A}; A != 0
-         - simp_multdiv: \frac{x^{A/B}y^{C/D}x^{E/F}}{y^{G/H}x^{I/J}y^{K/L}};
-                         denominators != 0 and have a 50% chance of being 1
+         - simp_multdiv: \frac{ax^{A/B}y^{C/D}x^{E/F}}{by^{G/H}x^{I/J}y^{K/L}};
+                         denominators != 0 and have a 50% chance of being 1 unless erange doesn't include it
          - simp_multdivdist: simp_multdiv but raised to a fractional exponent; denominator has a 50% chance of being 1
 
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range for generating problem parameters, (begin, end) inclusive.
+                       Must contain a number other than 0 and +-1.
         :param erange: The range for generating exponents in the problems, (begin, end) inclusive.
+                       Must contain a number other than 0 and +-1.
         :param types: The problem types to be chosen from. If omitted, any problem can be chosen.
         :param var: The variable candidates for the problems. Only used for some problem types, ignored otherwise.
                     If omitted, a minimal set will be chosen based on the selected types.
@@ -2573,18 +2575,76 @@ class RationalExponentPractice(ProblemBase):
                 nvar = max(nvar, 2)
         if not types:
             types = possible_types
+            nvar = 2
         self.types = types
         if var and len(var) < nvar:
             raise ValueError("the chosen problem types require more than the provided variables")
         elif nvar > 0:
             self.var = ('x', 'y')[:nvar]
 
+        if not set(range(nrange[0], nrange[1] + 1)) - {-1, 0, 1}:
+            raise ValueError("nrange must contain an integer other than 0 and +-1, nrange given: " + str(nrange))
+        self.nrange = nrange
+        if not set(range(erange[0], nrange[1] + 1)) - {-1, 0, 1}:
+            raise ValueError("erange must contain an integer, erange given: " + str(erange))
+        self.erange = erange
+
     def get_problem(self) -> list[Math]:
         prob_type = choice(self.types)
+        prob_text = None
+
+        def generate_multdiv(var1: str, var2: str) -> UnsafeFraction:
+            # \frac{ax^{A/B}y^{C/D}x^{E/F}}{by^{G/H}x^{I/J}y^{K/L}};
+            # denominators != 0 and have a 50% chance of being 1
+            result = []
+            def generate_exponent() -> Number | Fraction:
+                exponent_numerator = randint(self.erange[0], self.erange[1])
+                if random() < 0.5:
+                    # denominator not +-1
+                    exponent_denominator = randint(self.erange[0], self.erange[1])
+                    while abs(exponent_denominator) < 2:
+                        exponent_denominator = randint(self.erange[0], self.erange[1])
+                else:
+                    # denominator is +=1
+                    candidates = set(range(self.erange[0], self.erange[1])).intersection({-1, 1})
+                    if candidates:
+                        exponent_denominator = choice(list(candidates))
+                    else:
+                        # +-1 not in erange, just take anything
+                        exponent_denominator = randint(self.erange[0], self.erange[1])
+                        while exponent_denominator == 0:
+                            exponent_denominator = randint(self.erange[0], self.erange[1])
+                reslt = Fraction(exponent_numerator, exponent_denominator, big=False).simplified()
+                if reslt.denom == 1:
+                    return Number(reslt.sign * reslt.num)
+                else:
+                    return reslt
+
+            for i in range(2):
+                coefficient = randint(self.nrange[0], self.nrange[1])
+                while coefficient == 0:
+                    coefficient = randint(self.nrange[0], self.nrange[1])
+                variables = [[var1, generate_exponent()], [var2, generate_exponent()]]
+                for base in [var1, var2]:
+                    if random() < 0.5:
+                        variables.append([base, generate_exponent()])
+                shuffle(variables)
+                term = Term('x', coefficient, 1).dumps()[:-1]   # coefficient string
+                for v, e in variables:
+                    if isinstance(e, Fraction):
+                        term += NoEscape(f"{v}^{{{e.dumps()}}}")
+                    else:
+                        term += MultiVariableTerm(1, (v, e), hide_zero_exponent=False).dumps()
+                result.append(term)
+
+            return UnsafeFraction(result[0], result[1], big=False)
 
         match prob_type:
             case 'simp_multdiv':
-                pass
+                prob_text = generate_multdiv(*sample(self.var, 2)).dumps()
+
+        self.num_quest -= 1
+        return [Math(data=[prob_text], inline=True)]
 
 
 class PowerSignPractice(ProblemBase):
