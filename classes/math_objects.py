@@ -905,7 +905,8 @@ class UnsafeFraction(BaseMathClass):
     def __init__(self,
                  num: str | NumberArgument | BaseMathClass,
                  denom: str | NumberArgument | BaseMathClass,
-                 big=False):
+                 big=False,
+                 wrap=False):
         """
         A fraction with arbitrary numerator and denominator.
         If str is given as an argument, it will be converted to NoEscape.
@@ -913,6 +914,7 @@ class UnsafeFraction(BaseMathClass):
         :param num: The numerator of the fraction.
         :param denom: The denominator of the fraction.
         :param big: If True, get_latex() will return a fraction in display mode (bigger text).
+        :param wrap: If True, the fraction will be enclosed in parentheses.
         """
         def convert(o, name: str) -> BaseMathClass:
             if isinstance(o, str):
@@ -928,9 +930,13 @@ class UnsafeFraction(BaseMathClass):
         self.num = convert(num, "num")
         self.denom = convert(denom, "denom")
         self.big = big
+        self.wrap = wrap
 
     def get_latex(self) -> list[Command]:
-        return [Command("dfrac" if self.big else "frac", [self.num.dumps(), self.denom.dumps()])]
+        if not self.wrap:
+            return [Command("dfrac" if self.big else "frac", [self.num.dumps(), self.denom.dumps()])]
+        else:
+            return [Command('left('), Command("dfrac" if self.big else "frac", [self.num.dumps(), self.denom.dumps()]), Command('right)')]
 
 class UnsafePolynomial(BaseMathClass):
     def __init__(self, *terms: str | BaseMathClass, mix=False):

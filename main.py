@@ -11,7 +11,7 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.RationalExponentPractice(100, (-9, 9), (-9, 9))]
+    [problems.RationalExponentPractice(100, (-9, 9), (-9, 9), 'simp_multdivdist')]
 ]
 prob_names = ["Test"]
 prob_insts = [preset.simplify_instruction]

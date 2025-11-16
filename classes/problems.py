@@ -2548,9 +2548,6 @@ class RationalExponentPractice(ProblemBase):
 
         The possible problem types are (lowercase parameters are drawn from nrange,
         uppercase parameters are drawn from erange, x and y are variables):
-         - eval_frac: (a^A)^{B/A}; A, B > 0
-         - eval_neg: (a/b)^{-A}; A > 0
-         - eval_nfrac: {(a/b)^A}^{B/A}; A != 0
          - simp_multdiv: \frac{ax^{A/B}y^{C/D}x^{E/F}}{by^{G/H}x^{I/J}y^{K/L}};
                          denominators != 0 and have a 50% chance of being 1 unless erange doesn't include it
          - simp_multdivdist: simp_multdiv but raised to a fractional exponent; denominator has a 50% chance of being 1
@@ -2566,7 +2563,10 @@ class RationalExponentPractice(ProblemBase):
                     If omitted, a minimal set will be chosen based on the selected types.
         """
         super().__init__(num_quest, '2cm')
-        possible_types = ('simp_multdiv',)
+        possible_types = (
+            'simp_multdiv',
+            'simp_multdivdist'
+        )
         nvar = 0
         for t in types:
             if t not in possible_types:
@@ -2593,32 +2593,33 @@ class RationalExponentPractice(ProblemBase):
         prob_type = choice(self.types)
         prob_text = None
 
+        def generate_exponent() -> Number | Fraction:
+            exponent_numerator = randint(self.erange[0], self.erange[1])
+            if random() < 0.5:
+                # denominator not +-1
+                exponent_denominator = randint(self.erange[0], self.erange[1])
+                while abs(exponent_denominator) < 2:
+                    exponent_denominator = randint(self.erange[0], self.erange[1])
+            else:
+                # denominator is +=1
+                candidates = set(range(self.erange[0], self.erange[1])).intersection({-1, 1})
+                if candidates:
+                    exponent_denominator = choice(list(candidates))
+                else:
+                    # +-1 not in erange, just take anything
+                    exponent_denominator = randint(self.erange[0], self.erange[1])
+                    while exponent_denominator == 0:
+                        exponent_denominator = randint(self.erange[0], self.erange[1])
+            reslt = Fraction(exponent_numerator, exponent_denominator, big=False).simplified()
+            if reslt.denom == 1:
+                return Number(reslt.sign * reslt.num)
+            else:
+                return reslt
+
         def generate_multdiv(var1: str, var2: str) -> UnsafeFraction:
             # \frac{ax^{A/B}y^{C/D}x^{E/F}}{by^{G/H}x^{I/J}y^{K/L}};
             # denominators != 0 and have a 50% chance of being 1
             result = []
-            def generate_exponent() -> Number | Fraction:
-                exponent_numerator = randint(self.erange[0], self.erange[1])
-                if random() < 0.5:
-                    # denominator not +-1
-                    exponent_denominator = randint(self.erange[0], self.erange[1])
-                    while abs(exponent_denominator) < 2:
-                        exponent_denominator = randint(self.erange[0], self.erange[1])
-                else:
-                    # denominator is +=1
-                    candidates = set(range(self.erange[0], self.erange[1])).intersection({-1, 1})
-                    if candidates:
-                        exponent_denominator = choice(list(candidates))
-                    else:
-                        # +-1 not in erange, just take anything
-                        exponent_denominator = randint(self.erange[0], self.erange[1])
-                        while exponent_denominator == 0:
-                            exponent_denominator = randint(self.erange[0], self.erange[1])
-                reslt = Fraction(exponent_numerator, exponent_denominator, big=False).simplified()
-                if reslt.denom == 1:
-                    return Number(reslt.sign * reslt.num)
-                else:
-                    return reslt
 
             for i in range(2):
                 coefficient = randint(self.nrange[0], self.nrange[1])
@@ -2642,6 +2643,14 @@ class RationalExponentPractice(ProblemBase):
         match prob_type:
             case 'simp_multdiv':
                 prob_text = generate_multdiv(*sample(self.var, 2)).dumps()
+            case 'simp_multdivdist':
+                exp = generate_exponent()
+                base = generate_multdiv(*sample(self.var, 2))
+                if exp == 1:
+                    prob_text = base.dumps()
+                else:
+                    base.wrap = True
+                    prob_text = NoEscape(f"{base.dumps()}^{{{exp.dumps()}}}")
 
         self.num_quest -= 1
         return [Math(data=[prob_text], inline=True)]
