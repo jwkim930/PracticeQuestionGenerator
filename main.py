@@ -11,13 +11,16 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.RationalExponentPractice(100, (-9, 9), (-9, 9), var=preset.variables)]
+    [problems.TrigonometryProblem(10, (5, 13), arange=(25, 75))],
+    [problems.RadicalSimplify(10, (2, 8), (2, 4))],
+    [problems.RationalExponentPractice(10, (-9, 9), (-9, 9), var=preset.variables)],
+    [problems.FactorPolynomial(10, (-9, 9), 'numsym', 'nquad', 'quad', 'quad_twosym', 'square', 'diffsq', 'quad_combine', var=preset.variables)]
 ]
-prob_names = ["Test"]
-prob_insts = ["Rewrite the following expressions using powers with the least number of variables."]
-prob_cols = [1]
+prob_names = ["Trigonometry", "Radical Expression", "Exponent Law", "Factoring"]
+prob_insts = [preset.trig_instruction, preset.simplify_instruction, "Rewrite the following expressions using powers with the least number of variables.", preset.simplify_instruction]
+prob_cols = [2, 3, 1, 1]
 # If mix_up is True, questions are generated in mixed order for that section.
-mix_up = [False]
+mix_up = [False, False, False, False]
 title = "Midterm Review"   # ignored if there's only one section
 
 
