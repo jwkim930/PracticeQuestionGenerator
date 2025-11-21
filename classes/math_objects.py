@@ -84,8 +84,16 @@ class Fraction(BaseMathEntity):
     def __init__(self, num: int, denom: int, sign=1, big=True, wrap=False):
         """
         A fraction with integer numerator/denominator.
+
+        Equivalent fractions are considered not equal. Use simplified() for that.
+        For example, 4/5 is equal to 4/5, but 4/5 is not equal to 8/9 or 8/10.
+        Also, -(-1/2) is not equal to 1/2.
+        Attributes big and wrap are ignored for equality check.
+
         Multiplying it by other entity leaves the fraction unsimplified.
-        Multiplying a big fraction and small fraction results in a big fraction.
+        Adding or subtracting returns a simplified result.
+        Multiplying or adding a big fraction and small fraction results in a big fraction.
+        Multiplying or adding a wrapped fraction and an unwrapped fraction results in a wrapped fraction.
 
         :param num: Numerator of the fraction.
         :param denom: Denominator of the fraction. Cannot be zero.
@@ -115,15 +123,6 @@ class Fraction(BaseMathEntity):
             return [Command("dfrac" if self.big else "frac", [self.num, self.denom])]
 
     def __eq__(self, other) -> bool:
-        """
-        Checks if this fraction is equal to another.
-        Equivalent fractions are considered not equal.
-        For example, 4/5 is equal to 4/5, but 4/5 is not equal to 8/9 or 8/10.
-        Also, -(-1/2) is not equal to 1/2.
-        This ignores the attribute big.
-
-        :return: True if the two are the same fraction, false otherwise.
-        """
         if not isinstance(other, Fraction):
             return False
         return self.num == other.num and self.denom == other.denom and self.sign == other.sign
@@ -139,6 +138,31 @@ class Fraction(BaseMathEntity):
                 return TypeError("Only an integer value can be multiplied to a Fraction, the value was " + str(other))
         elif isinstance(other, Fraction):
             return Fraction(self.num * other.num, self.denom * other.denom, self.sign * other.sign, self.big or other.big, self.wrap or other.wrap)
+        else:
+            return NotImplemented
+
+    def __add__(self, other):
+        if isinstance(other, Fraction):
+            a = self.simplified()
+            a.num *= a.sign
+            a.sign = 1
+            b = other.simplified()
+            b.num *= b.sign
+            b.sign = 1
+            result = Fraction(
+                a.num * b.denom + a.denom * b.num,
+                a.denom * b.denom,
+                1,
+                self.big or other.big,
+                self.wrap or other.wrap
+            ).simplified()
+            return result
+        else:
+            return NotImplemented
+
+    def __sub__(self, other):
+        if isinstance(other, Fraction):
+            return self + -other
         else:
             return NotImplemented
 

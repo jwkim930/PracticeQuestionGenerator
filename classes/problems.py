@@ -1645,6 +1645,7 @@ class FactorPolynomial(EquationMultiOperation):
         - square_twosym: a perfect square of a two-variable binomial
         - diffsq: the difference of a perfect square monomial and a perfect square constant
         - quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
+        - quad_frac: quadratic polynomial with fractional coefficients
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -1667,7 +1668,8 @@ class FactorPolynomial(EquationMultiOperation):
                           "square",
                           "square_twosym",
                           "diffsq",
-                          "quad_combine")
+                          "quad_combine",
+                          "quad_frac")
         for t in types:
             if t not in possible_types:
                 raise ValueError(f"The problem type {t} is invalid")
@@ -1676,7 +1678,7 @@ class FactorPolynomial(EquationMultiOperation):
             types = possible_types
         self.types = types
 
-    def get_random_polynomial(self, prob_type: str) -> MultiVariablePolynomial:
+    def get_random_polynomial(self, prob_type: str) -> BaseMathClass:
         """
         Generates a polynomial with random non-zero parameters.
         A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
@@ -1697,6 +1699,7 @@ class FactorPolynomial(EquationMultiOperation):
          - square_twosym: a perfect square of a two-variable binomial
          - diffsq: the difference of a perfect square monomial and a perfect square constant
          - quad_combine: quadratic polynomial that can be factored into two binomials, more than 3 terms
+         - quad_frac: quadratic polynomial with fractional coefficients
 
         :param prob_type: The type of polynomial to be used.
                           Refer to the docstring for the options and the description of each type.
@@ -1875,7 +1878,21 @@ class FactorPolynomial(EquationMultiOperation):
                     if s[i] != 0:
                         poly.append(Term(var, s[i], 2-i))
                 poly.mix()
-
+            case "quad_frac":
+                var = choice(self.var)
+                # [(a/b)x + (n/m)][(c/d)x + (p/q)]
+                a, c, n, p = self.draws(4)
+                b, m, d, q = self.draws(4, 0)
+                A = Fraction(a, b)
+                N = Fraction(n, m)
+                C = Fraction(c, d)
+                P = Fraction(p, q)
+                poly = UnsafePolynomial(
+                    (A * C).simplified().dumps() + f"{var}^2",
+                    (A*P + N*C).dumps() + var,
+                    (N * P).simplified().dumps(),
+                    mix=True
+                )
         return poly
 
     def get_problem(self):
