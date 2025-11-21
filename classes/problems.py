@@ -1912,6 +1912,8 @@ class QuadraticEquation(EquationMultiOperation):
 
         Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
          - fact_standard: ax^2 + bx + c = 0, can be solved by factoring
+         - fact_square: a^2x^2 + 2abx + b^2 = 0
+         - fact_diffsq: a^2x^2 - b^2 or b^2 - a^2x^2
          - fact_separated: ax^2 + bx = c, can be solved by factoring
          - fact_double: ax^2 + bx + c = dx^2 + ex + f, can be solved by factoring
          - stand_real: standard form with real, non-rational root(s)
@@ -1930,6 +1932,8 @@ class QuadraticEquation(EquationMultiOperation):
         """
         super().__init__(num_quest, nrange, var=var, inequality=inequality)
         possible_types = ('fact_standard',
+                          'fact_square',
+                          'fact_diffsq',
                           'fact_separated',
                           'fact_double',
                           'stand_real',
@@ -1962,7 +1966,29 @@ class QuadraticEquation(EquationMultiOperation):
                     {'coefficient': a*d + b*c, 'exponent': 1},
                     {'coefficient': b*d, 'exponent': 0}
                 ], mix=True).remove_zeros()
-                rhs = TextWrapper(["0"])
+                rhs = Number(0)
+            case 'fact_square':
+                a, b = self.draws(2, 0)
+                lhs = SingleVariablePolynomial(var, [
+                    {'coefficient': a**2, 'exponent': 2},
+                    {'coefficient': 2*a*b, 'exponent': 1},
+                    {'coefficient': b**2, 'exponent': 0}
+                ], mix=True)
+                rhs = Number(0)
+            case 'fact_diffsq':
+                # a^2x^2 - b^2 or b^2 - a^2x^2
+                a, b = self.draws(2, 0)
+                if random() < 0.5:
+                    lhs = SingleVariablePolynomial(var, [
+                        {'coefficient': a**2, 'exponent': 2},
+                        {'coefficient': -b**2, 'exponent': 0}
+                    ], mix=True)
+                else:
+                    lhs = SingleVariablePolynomial(var, [
+                        {'coefficient': -a**2, 'exponent': 2},
+                        {'coefficient': b**2, 'exponent': 0}
+                    ], mix=True)
+                rhs = Number(0)
             case 'fact_separated':
                 # generate by expanding (ax + b)(cx + d) = 0 and isolating constant
                 a, b, c, d = self.draws(4)
@@ -1970,7 +1996,7 @@ class QuadraticEquation(EquationMultiOperation):
                     {'coefficient': a*c, 'exponent': 2},
                     {'coefficient': a*d + b*c, 'exponent': 1}
                 ], mix=True).remove_zeros()
-                rhs = TextWrapper([str(-b * d)])
+                rhs = Number(-b * d)
             case 'fact_double':
                 # generate lhs by expanding (ax + b)(cx + d)
                 a, b, c, d = self.draws(4)
