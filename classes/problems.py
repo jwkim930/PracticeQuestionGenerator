@@ -2412,6 +2412,54 @@ class IdentifyQuadraticGraph(IdentifyGraph):
         return NoEscape(f"({a}) * (x - ({vx})) * (x - ({vx})) + ({vy})"), (xmin, xmax), (ymin, ymax)
 
 
+class PowersOfTenPractice(ProblemBase):
+    def __init__(self, num_quest: int, drange: tuple[int, int], decompose:bool|None = None):
+        """
+        Initializes problems where a number needs to be expressed using powers of 10,
+        or such an expression needs to be evaluated.
+
+        :param num_quest: The number of questions to be generated.
+        :param drange: The range used for the number of digits in the generated number,
+                       (begin, end) inclusive. The lower bound must be at least 2.
+        decompose: If True, problems will ask to express a number using powers of 10.
+                   If False, problems will ask to evaluate a number expressed using powers of 10.
+                   If None, it will be chosen randomly between the two.
+        """
+        super().__init__(num_quest, "2cm")
+        if drange[0] > drange[1] or drange[0] < 2 or drange[1] < 2:
+            raise ValueError("invalid drange; the lower bound must be at least 2")
+        self.drange = drange
+        self.decompose = decompose
+
+    def get_problem(self) -> list[Math]:
+        # generate the digits
+        digits = np.zeros(randint(self.drange[0], self.drange[1]), dtype=int)
+        # the first digit must be nonzero
+        digits[0] = randint(1, 9)
+        # the rest has 75% chance of being nonzero
+        for i in range(1, digits.size):
+            if random() < 0.75:
+                digits[i] = randint(1, 9)
+
+        # render the result
+        decompose = self.decompose if self.decompose is not None else choice([True, False])
+        if decompose:
+            # the result is the raw number
+            result = 0
+            for i in range(digits.size):
+                result += digits[i] * 10**(digits.size - 1 - i)
+            self.num_quest -= 1
+            return [Math(inline=True, data=[result])]
+        else:
+            # the result is the powers of 10
+            result = UnsafePolynomial()
+            for i in range(digits.size):
+                if digits[i] > 0:
+                    result.append(rf"\left( {digits[i]} \times 10^{{{digits.size - 1 - i}}} \right)")
+            self.num_quest -= 1
+            return [Math(inline=True, data=result.get_latex())]
+
+
 class ExponentRulePractice(ProblemBase):
     def __init__(self, num_quest: int, brange: tuple[int, int], erange: tuple[int, int], *types: str, sqrt_only=False):
         r"""
@@ -2952,7 +3000,6 @@ class TrigonometryProblem(ProblemBase):
             factor = 4 / (b if a < b else a).get_signed()
             a_scaled = TrigonometryProblem.round_to(a * factor, self.precision)
             b_scaled = TrigonometryProblem.round_to(b * factor, self.precision)
-            c_scaled = TrigonometryProblem.round_to(c * factor, self.precision)
             match orientation:
                 case 1:
                     A = (Number(0), Number(0))

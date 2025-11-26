@@ -11,7 +11,7 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.QuadraticEquation(100, (-9, 9), 'fact_square', 'fact_diffsq')]
+    [problems.PowersOfTenPractice(100, (4, 8))]
 ]
 prob_names = ["Test"]
 prob_insts = [preset.simplify_instruction]

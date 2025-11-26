@@ -979,32 +979,52 @@ class UnsafePolynomial(BaseMathClass):
         :param terms: The terms for the polynomial.
         :param mix: If True, the order of the terms will be shuffled.
         """
-        self.terms = []
+        self.terms: list[dict[str, list[NoEscape | LatexObject]]] = []
         for term in terms:
-            t = {}
-            if isinstance(term, str):
-                if term[0] == '-':
-                    t['sign'] = -1
-                else:
-                    t['sign'] = 1
-                t['value'] = NoEscape(term)
-            elif isinstance(term, BaseMathEntity):
-                t['sign'] = term.sign
-                t['value'] = term.dumps()
-            elif isinstance(term, BaseMathClass):
-                t['sign'] = 1
-                t['value'] = term.dumps()
-            else:
-                raise TypeError(f"type {type(term).__name__} is not allowed for a term")
-            self.terms.append(t)
+            self.append(term)
         if mix:
             shuffle(self.terms)
 
-    def get_latex(self) -> list[NoEscape]:
-        result = [self.terms[0]['value']]
+    def append(self, term: str | BaseMathClass) -> Self:
+        """
+        Add a term to the polynomial.
+        Refer to __init__() for details about how terms are organized.
+
+        :param term: The term to be added.
+        :return: The object instance for chained calls.
+        """
+        t = {}
+        if isinstance(term, str):
+            if term[0] == '-':
+                t['sign'] = -1
+            else:
+                t['sign'] = 1
+            t['value'] = [NoEscape(term)]
+        elif isinstance(term, BaseMathEntity):
+            t['sign'] = term.sign
+            t['value'] = term.get_latex()
+        elif isinstance(term, BaseMathClass):
+            t['sign'] = 1
+            t['value'] = term.get_latex()
+        else:
+            raise TypeError(f"type {type(term).__name__} is not allowed for a term")
+        self.terms.append(t)
+        return self
+
+    def mix(self) -> Self:
+        """
+        Mixes the order of the terms in place.
+
+        :return: self for chained method calls.
+        """
+        shuffle(self.terms)
+        return self
+
+    def get_latex(self) -> list[NoEscape | BaseMathClass | Command]:
+        result = self.terms[0]['value']
         for t in self.terms[1:]:
             if t['sign'] == 1:
                 result.append(NoEscape('+'))
-            result.append(t['value'])
+            result.extend(t['value'])
 
         return result
