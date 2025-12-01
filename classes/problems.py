@@ -134,6 +134,7 @@ class IntegerSubtraction(IntegerBinaryOperation):
         """
         super().__init__(num_quest, "-", orange, neg)
 
+
 class IntegerMultiplication(IntegerBinaryOperation):
     def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
         """
@@ -144,6 +145,7 @@ class IntegerMultiplication(IntegerBinaryOperation):
         :param neg: If True, at least one of the operands will be negative.
         """
         super().__init__(num_quest, Command("times"), orange, neg)
+
 
 class IntegerDivision(IntegerBinaryOperation):
     def __init__(self, num_quest: int, orange: tuple[int, int], neg=False):
@@ -1887,12 +1889,11 @@ class FactorPolynomial(EquationMultiOperation):
                 N = Fraction(n, m)
                 C = Fraction(c, d)
                 P = Fraction(p, q)
-                poly = UnsafePolynomial(
-                    (A * C).simplified().dumps() + f"{var}^2",
-                    (A*P + N*C).dumps() + var,
-                    (N * P).simplified().dumps(),
-                    mix=True
-                )
+                poly = SingleVariablePolynomial(var, [
+                    {'coefficient': (A * C).simplified(), 'exponent': 2},
+                    {'coefficient': (A*P + N*C).simplified(), 'exponent': 1},
+                    {'coefficient': (N * P).simplified(), 'exponent': 0}
+                ], mix=True)
         return poly
 
     def get_problem(self):
