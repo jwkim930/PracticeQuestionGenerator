@@ -512,7 +512,7 @@ class GraphingProblem(ProblemBase, ABC):
     def __init__(self, num_quest: int):
         """
         Initializes a graphing problem.
-        It requires graphing_grid.png in the document_output folder.
+        It requires graphing_grid.png in the project root folder.
 
         :param num_quest: The number of questions to be generated.
         """
@@ -531,7 +531,7 @@ class GraphingProblem(ProblemBase, ABC):
             NoEscape("\n"),
             VerticalSpace("2em"),
             NoEscape("\n"),
-            StandAloneGraphic("graphing_grid.png", "width=0.3\\linewidth")
+            StandAloneGraphic("../graphing_grid.png", "width=0.3\\linewidth")
         ]
 
         self.num_quest -= 1
@@ -542,9 +542,10 @@ class LinearGraphingProblem(GraphingProblem):
     def __init__(self, num_quest: int, num_range: tuple[int, int], *types: str):
         """
         Initializes a graphing problem for a linear function.
-        It requires graphing_grid.png in the document_output folder.
+        It requires graphing_grid.png in the project root folder.
 
         The possible types are the following (there's a 50% chance the coefficient a will be a fraction):
+
         - si: ax + b, a != 0
         - sp: a(x - h) + k, a, h != 0
 
@@ -733,7 +734,7 @@ class LinearRelationProblem(ProblemBase):
 
         y = hx + k
 
-        It requires graphing_grid.png in the document_output folder.
+        It requires graphing_grid.png in the project root folder.
 
         If you want decimal numbers for any of the ranges, the number must be given in a string, not a float.
 
@@ -798,7 +799,7 @@ class LinearRelationProblem(ProblemBase):
                     for x in self.x_values:
                         xy_table.add_row(Math(inline=True, data=[str(x)]), Math(inline=True, data=[str(h * x + k)]))
             with doc.create(MiniPage(width=r'0.3\textwidth')):
-                doc.append(StandAloneGraphic("graphing_grid.png", "width=\\linewidth"))
+                doc.append(StandAloneGraphic("../graphing_grid.png", "width=\\linewidth"))
 
         self.num_quest -= 1
         return [DocInjector(body)]

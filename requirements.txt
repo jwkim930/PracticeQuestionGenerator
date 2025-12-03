@@ -1,0 +1,3 @@
+pylatex
+numpy
+sympy

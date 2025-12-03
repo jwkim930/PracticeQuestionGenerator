@@ -11,11 +11,11 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.FactorPolynomial(100, (-9, 9), 'quad_frac', var=preset.variables)]
+    [problems.LinearGraphingProblem(100, (-9, 9))]
 ]
-prob_names = ["Test"]
-prob_insts = [preset.simplify_instruction]
-prob_cols = [1]
+prob_names = ["Test"]   # name of each section
+prob_insts = [preset.simplify_instruction]   # instruction for each section
+prob_cols = [1]   # number of columns for each section
 # If mix_up is True, questions are generated in mixed order for that section.
 mix_up = [False]
 title = "Midterm Review"   # ignored if there's only one section
@@ -68,4 +68,8 @@ else:
             doc.append(prob_insts[sec])
             print_problems(sec)
             doc.append(VerticalSpace("1cm"))
-doc.generate_tex(os.path.join(os.getcwd(), "document_output", prob_names[0] if len(probs) == 1 else title))
+
+output_dir = os.path.join(os.getcwd(), "document_output")
+if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+doc.generate_tex(os.path.join(output_dir, prob_names[0] if len(probs) == 1 else title))
