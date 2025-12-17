@@ -797,7 +797,10 @@ class LinearRelationProblem(ProblemBase):
                     xy_table.add_row(Math(inline=True, data=['x']), Math(inline=True, data=['y']))
                     xy_table.add_hline()
                     for x in self.x_values:
-                        xy_table.add_row(Math(inline=True, data=[str(x)]), Math(inline=True, data=[str(h * x + k)]))
+                        y = Number(h * x + k)
+                        if y.is_int(min(self.h_range[2], self.k_range[2]) / 100):
+                            y = Number(int(y))
+                        xy_table.add_row(Math(inline=True, data=[str(x)]), Math(inline=True, data=[str(y)]))
             with doc.create(MiniPage(width=r'0.3\textwidth')):
                 doc.append(StandAloneGraphic("../graphing_grid.png", "width=\\linewidth"))
 

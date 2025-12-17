@@ -263,11 +263,13 @@ class Number(BaseMathEntity):
         else:
             return [NoEscape(self.mag)]
 
-    def is_int(self) -> bool:
+    def is_int(self, tol=0.0) -> bool:
         """
         Returns True if this number can be converted to integer with no loss.
+
+        :param tol: Specifies the acceptable loss in conversion, 0 means exactly integer
         """
-        return self.mag == int(self.mag)
+        return abs(self - int(self)) < abs(tol)
 
     def __str__(self):
         return str(self.get_signed())
@@ -297,7 +299,7 @@ class Number(BaseMathEntity):
     __rmul__ = __mul__
 
     def __int__(self):
-        return int(self.get_signed())
+        return round(self.get_signed())
 
     def __add__(self, other):
         if isinstance(other, Number):

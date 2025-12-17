@@ -11,10 +11,10 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.LinearGraphingProblem(100, (-9, 9))]
+    [problems.LinearRelationProblem(6, (-3, 3, '0.5'), (-3, 3), (-2, 2, 1))]
 ]
-prob_names = ["Test"]   # name of each section
-prob_insts = [preset.simplify_instruction]   # instruction for each section
+prob_names = ["Linear Relation"]   # name of each section
+prob_insts = [NoEscape("Sketch the graph of $y = f(x)$, then find an expression for $f(x)$. For \\textit{odd}-numbered questions, write $f(x)$ in \\textbf{slope-intercept form}. For \\textit{even}-numbered questions, write $f(x)$ in \\textbf{slope-point form}. Then, rewrite $f(x)$ in \\textbf{general form}.")]   # instruction for each section
 prob_cols = [1]   # number of columns for each section
 # If mix_up is True, questions are generated in mixed order for that section.
 mix_up = [False]
