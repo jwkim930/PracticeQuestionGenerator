@@ -269,7 +269,10 @@ class Number(BaseMathEntity):
 
         :param tol: Specifies the acceptable loss in conversion, 0 means exactly integer
         """
-        return abs(self - int(self)) < abs(tol)
+        if tol == 0.0:
+            return self == int(self)
+        else:
+            return abs(self - int(self)) < abs(tol)
 
     def __str__(self):
         return str(self.get_signed())

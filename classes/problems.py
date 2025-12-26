@@ -1165,8 +1165,10 @@ class EquationMultiOperation(ProblemBase):
          - simple_dist: a(x + b) = c
          - double: ax + b = cx + d
          - double_dist: a(bx + c) = d(ex + f)
+         - dist_add: a(bx + c) + dx = ex + f
          - double_frac: \frac{x}{a} + \frac{b}{c} = \frac{d}{e}
          - double_frac_dist: \frac{a}{b}(x + c) = \frac{d}{e}(x + f)
+         - frac_dist_nondist: \frac{a}{b}(cx + d) = ex + f
          - rational: \frac{a}{x} = b, cannot be used with inequality
          - frac_const: \frac{x}{a} + b = \frac{c}{d}
          - bino_frac: \frac{x + a}{b} + \frac{c}{d} = \frac{e}{f}
@@ -1194,8 +1196,10 @@ class EquationMultiOperation(ProblemBase):
                           'simple_dist',
                           'double',
                           'double_dist',
+                          'dist_add',
                           'double_frac',
                           'double_frac_dist',
+                          'frac_dist_nondist',
                           'rational',
                           'frac_const',
                           'bino_frac',
@@ -1277,7 +1281,7 @@ class EquationMultiOperation(ProblemBase):
                 num_params = 4
             case 'double_frac' | 'insane_2':
                 num_params = 5
-            case 'double_dist' | 'double_frac_dist' | 'bino_frac' | 'double_bino_frac' | 'insane_5':
+            case 'double_dist' | 'dist_add' | 'double_frac_dist' | 'frac_dist_nondist' | 'bino_frac' | 'double_bino_frac' | 'insane_5':
                 num_params = 6
             case 'double_bino_frac_large' | 'insane_1':
                 num_params = 7
@@ -1354,6 +1358,31 @@ class EquationMultiOperation(ProblemBase):
                                                              {'coefficient': params[4], 'exponent': 0}],
                                                             True).dumps(),
                                    Command('right)').dumps()])
+            case 'dist_add':
+                for _ in range(100):
+                    # need ab + d != e
+                    a, b, d, e = self.draws(4, 1, -1)
+                    if a*b + d != e:
+                        params[0] = a
+                        params[1] = b
+                        params[3] = d
+                        params[4] = e
+                        break
+                if params[0] == 0:
+                    raise ValueError("The given nrange cannot seem to generate a dist_add with a solution")
+                params[2], params[5] = self.draws(2)
+
+                lhs = MultiVariablePolynomial([
+                    MultiVariableTerm(params[0], (SingleVariablePolynomial(var, [
+                        {'coefficient': params[1], 'exponent': 1},
+                        {'coefficient': params[2], 'exponent': 0}
+                    ], mix=True, wrap=True).dumps(), 1)),
+                    Term(var, params[3], 1)
+                ], mix=True)
+                rhs = SingleVariablePolynomial(var, [
+                    {'coefficient': params[4], 'exponent': 1},
+                    {'coefficient': params[5], 'exponent': 0}
+                ], mix=True)
             case 'double_frac':
                 params[0], params[2], params[4] = self.draws(3, 1, -1)   # these shouldn't be 1 or -1
                 params[1] = self.draw(params[2], -params[2])   # b shouldn't be +- c
@@ -1391,6 +1420,29 @@ class EquationMultiOperation(ProblemBase):
                                                              {'coefficient': params[5], 'exponent': 0}],
                                                             True).dumps(),
                                    Command('right)').dumps()])
+            case 'frac_dist_nondist':
+                for _ in range(100):
+                    a = self.draw()
+                    b = self.draw(a, -a, 1, -1)
+                    c, e = self.draws(2, 1, -1)
+                    if a * c != b * e:
+                        params[0] = a
+                        params[1] = b
+                        params[2] = c
+                        params[4] = e
+                        break
+                if params[0] == 0:
+                    raise ValueError("The given nrange cannot seem to generate a frac_dist_nondist with a solution")
+                params[3], params[5] = self.draws(2)
+
+                lhs = Term(SingleVariablePolynomial(var, [
+                    {'coefficient': params[2], 'exponent': 1},
+                    {'coefficient': params[3], 'exponent': 0}
+                ], wrap=True).dumps(), Fraction(params[0], params[1]), 1)
+                rhs = SingleVariablePolynomial(var, [
+                    {'coefficient': params[4], 'exponent': 1},
+                    {'coefficient': params[5], 'exponent': 0}
+                ], mix=True)
             case 'rational':
                 params[0], params[1] = self.draws(2)
 

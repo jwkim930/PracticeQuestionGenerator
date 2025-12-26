@@ -66,7 +66,7 @@ class MultiOperationAdvancedMix(problems.EquationMultiOperation):
 
 class MultiOperationChallengingMix(problems.EquationMultiOperation):
     def __init__(self, num_quest: int, nrange: tuple[int, int], var=('x',), inequality=False):
-        super().__init__(num_quest, nrange, 'frac_const', 'bino_frac', 'double_bino_frac', 'bino_frac_const', 'double_bino_frac_large',var=var, inequality=inequality)
+        super().__init__(num_quest, nrange, 'frac_dist_nondist', 'dist_add', 'frac_const', 'bino_frac', 'double_bino_frac', 'bino_frac_const', 'double_bino_frac_large', var=var, inequality=inequality)
 
 
 class MultiOperationInsaneMix(problems.EquationMultiOperation):
