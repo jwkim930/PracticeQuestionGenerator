@@ -36,13 +36,6 @@ This project supports a wide variety of problem types. Some of the currently imp
     pip install -r requirements.txt
     ```
 
-## Setup & Assets
-
-To run successfully, the project requires specific asset files in your working directory or the output directory:
-
-1.  **`word_problems.txt`**: A text file containing templates for word problems. This is required if you are generating `WordProblem` types.
-2.  **`graphing_grid.png`**: An image file of a coordinate grid. This is required for graphing problems (e.g., `LinearGraphingProblem`, `LinearRelationProblem`) and must be placed in the project root folder. Note that this repo includes a copy for you.
-
 ## Usage
 
 1.  **Configure the Worksheet**:
