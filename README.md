@@ -1,4 +1,4 @@
-# Math Practice Problem Generator
+# Math Practice Question Generator
 
 A Python-based tool that generates randomized mathematics practice worksheets using LaTeX. The problem set covers primary/secondary school mathematics.
 
