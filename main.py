@@ -11,10 +11,9 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [preset.MultiOperationAdvancedMix(4, (-8, 8), preset.variables),
-     preset.MultiOperationChallengingMix(13, (-8, 8), preset.variables)]
+    [problems.EquationMultiOperation(100, (-6, 6), 'double_frac_dist')]
 ]
-prob_names = ["Equation"]   # name of each section
+prob_names = ["Test"]   # name of each section
 prob_insts = [preset.equation_instruction]   # instruction for each section
 prob_cols = [1]   # number of columns for each section
 # If mix_up is True, questions are generated in mixed order for that section.

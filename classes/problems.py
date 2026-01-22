@@ -1333,10 +1333,11 @@ class EquationMultiOperation(ProblemBase):
             case 'double_dist':
                 # generate parameters, making sure it has a solution
                 # a(bx + c) = d(ex + f) has a solution if ab != de
-                params[2], params[5] = self.draws(2)   # c, f don't matter
-                params[0], params[1] = self.draws(2, 1)   # a, b shouldn't be 1
+                params[1], params[2], params[5] = self.draws(3)   # b, c, f don't matter
+                params[0] = self.draw(1)   # a shouldn't be 1
                 for _ in range(100):
-                    d, e = self.draws(2, 1)   # d, e shouldn't be 1
+                    e = self.draw()
+                    d = self.draw(1)   # e shouldn't be 1
                     if d * e != params[0] * params[1]:
                         params[3] = d
                         params[4] = e
@@ -1344,20 +1345,22 @@ class EquationMultiOperation(ProblemBase):
                 if params[3] == 0:
                     raise ValueError("The given nrange cannot seem to generate a double_dist with a solution")
 
-                lhs = TextWrapper([str(params[0]) if params[0] != -1 else '-',
-                                   Command('left(').dumps(),
-                                   SingleVariablePolynomial(var,
-                                                            [{'coefficient': params[1], 'exponent': 1},
-                                                             {'coefficient': params[2], 'exponent': 0}],
-                                                            True).dumps(),
-                                   Command('right)').dumps()])
-                rhs = TextWrapper([str(params[2]) if params[2] != -1 else '-',
-                                   Command('left(').dumps(),
-                                   SingleVariablePolynomial(var,
-                                                            [{'coefficient': params[3], 'exponent': 1},
-                                                             {'coefficient': params[4], 'exponent': 0}],
-                                                            True).dumps(),
-                                   Command('right)').dumps()])
+                lhs = SingleVariablePolynomial(
+                    SingleVariablePolynomial(
+                        var, [
+                            {'coefficient': params[1], 'exponent': 1},
+                            {'coefficient': params[2], 'exponent': 0}
+                        ], mix=True, wrap=True
+                    ).dumps(), [{'coefficient': params[0], 'exponent': 1}]
+                )
+                rhs = SingleVariablePolynomial(
+                    SingleVariablePolynomial(
+                        var, [
+                            {'coefficient': params[4], 'exponent': 1},
+                            {'coefficient': params[5], 'exponent': 0}
+                        ], mix=True, wrap=True
+                    ).dumps(), [{'coefficient': params[3], 'exponent': 1}]
+                )
             case 'dist_add':
                 for _ in range(100):
                     # need ab + d != e
@@ -1406,20 +1409,22 @@ class EquationMultiOperation(ProblemBase):
                 if params[3] == 0:
                     raise ValueError("The given nrange cannot seem to generate a double_frac_dist with a solution")
 
-                lhs = TextWrapper([Fraction(params[0], params[1], big=False).dumps(),
-                                   Command('left(').dumps(),
-                                   SingleVariablePolynomial(var,
-                                                            [{'coefficient': 1, 'exponent': 1},
-                                                             {'coefficient': params[2], 'exponent': 0}],
-                                                            True).dumps(),
-                                   Command('right)').dumps()])
-                rhs = TextWrapper([Fraction(params[3], params[4], big=False).dumps(),
-                                   Command('left(').dumps(),
-                                   SingleVariablePolynomial(var,
-                                                            [{'coefficient': 1, 'exponent': 1},
-                                                             {'coefficient': params[5], 'exponent': 0}],
-                                                            True).dumps(),
-                                   Command('right)').dumps()])
+                lhs = SingleVariablePolynomial(
+                    SingleVariablePolynomial(
+                        var, [
+                            {'coefficient': 1, 'exponent': 1},
+                            {'coefficient': params[2], 'exponent': 0}
+                        ], mix=True, wrap=True
+                    ).dumps(), [{'coefficient': Fraction(params[0], params[1]), 'exponent': 1}]
+                )
+                rhs = SingleVariablePolynomial(
+                    SingleVariablePolynomial(
+                        var, [
+                            {'coefficient': 1, 'exponent': 1},
+                            {'coefficient': params[5], 'exponent': 0}
+                        ], mix=True, wrap=True
+                    ).dumps(), [{'coefficient': Fraction(params[3], params[4]), 'exponent': 1}]
+                )
             case 'frac_dist_nondist':
                 for _ in range(100):
                     a = self.draw()
