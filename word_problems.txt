@@ -1,13 +1,35 @@
 This file contains the word problems.
+
 Each word problem follows the following format:
 [Name]
 [Content]
-[Number of parameters]
+[Number of numeric parameters] [Number of string parameters]
+`=[option1|option2|option3|...]
+``=[option1|option2|option3|...]
+...
 
 Add '!' (without quotation) to the left of the name to signal the program.
-The content should mark the parameters by @ so that they can be replaced by appropriate values.
+The content should mark numeric parameters using a single @,
+which are replaced by a random number within the range.
+The content should mark string parameters using any number of ` (`, ``, ```, etc.),
+which are replaced by a string randomly drawn from the options.
+This must start from 1 symbol and go up consecutively (i.e. can't have just ` and ```).
+
+The same string placeholder can appear multiple times (e.g. `` might appear 5 times if a value is used repeatedly).
+For problems with no string placeholders, simply omit [Number of string parameters] and the `= lines.
 Every element should be on its own line, and there should be no line between the elements.
 You may use LaTeX text formating for the content. You may freely use the exclamation mark for the question text.
+
+Example:
+!ExampleProblem
+` drives for @ minutes while travelling at @ km/h. The ` is driven by ``.
+2 2
+`=car|truck|bus|motorcycle
+``=Alice|Bob|Charlie
+
+This would randomly pick a vehicle type for ` (used twice) and a driver name for ``.
+When generated, all occurrences of ` will be replaced with the same randomly chosen value.
+
 
 #### 2D Shapes ####
 
@@ -73,3 +95,92 @@ What is the \textbf{\underline{surface area}} and \textbf{\underline{volume}} of
 !ShotGaugeDiameter
 The size of a shotgun bore is measured in \textit{gauges}. The gauge number represents the number of lead balls that can be made with a pound of lead, where the diameter of the lead ball measures the bore size. For example, an 8-gauge shotgun has a bore that fits a lead ball that weighs 1/8 lb. Given that the density of lead is approximately 0.41 lb/in$^3$, what is the bore diameter of a @-gauge shotgun?
 1
+
+
+#### Long Word Problems ####
+
+# PROBLEM: Grade9PatternsAndSimilarity (Multi-part, 6 parts)
+# CURRICULUM ALIGNMENT (Saskatchewan Grade 9):
+#   - P9.1: Solving situational problems involving linear equations
+#   - P9.2: equation: Linear equations
+#   - P9.3: Linear Inequality
+#   - SS9.3c: Verify the similarity of 2D objects
+#   - SS9.3f: Solving situational problems involving similarity
+#   - SS9.3k: Computing scale factor
+#   - SS9.3l: Solving situational problems involving scale factor
+#
+# RECOMMENDED PARAMETER RANGES (Parameters outside these range may result in unrealistic numbers):
+#   @1: room space width (60-150)
+#   @2: room space length (60-150)
+#   @3: Jupiter circumference in Mm (400-500)
+#   @4: Jupiter model circumference in cm (10-20)
+#   @5: Jupiter orbiting radius in Gm (750-850)
+#   @6: SS model width in cm (5-10)
+#   @7: SS model height in cm (5-10)
+#   @8: SS real width in m (50-100)
+#   @9: SS real height in m (50-100)
+#   @10: distance multiplier (5-8)
+#   @11: Earth Neptune distance in cm (30-50)
+
+!Grade9PatternsAndSimilarity
+` is a grade 9 student aspiring to become an astronaut. He loves everything about space: the stars, the planets, the rockets, even having to drink from the moisture in the crews' breath (yes, that's a thing in space). `'s room is full of space-related goods. In particular, ` has recently been working on creating a model for our solar system. He collected the scaled down Sun, the 8 planets, the Moon, and even some space stations like the ``. To arrange the models, ` dedicated a rectangular space that measures @ cm by @ cm. \par \begin{itemize} \item[(a)] ` saw on the internet that the circumference of Jupiter is about @ million metres. He measured the circumference of the Jupiter model he has using a tape measure, and he measured @ centimetres. What is the scale factor of the model? (Hint: 1 m = 100 cm) \item[(b)] Seeing how small the scale factor is, ` decided to make the display fully to scale. ` found out that the distance between the Sun (which will be at the center) and Jupiter is roughly @ billion meters. How far apart should the Sun model and the Jupiter model be to make the display accurate to scale? \item[(c)] Let $r$ be the length of the room available for display, and let $f$ be the scale factor. Set up an inequality that describes how large the room must be in order to fit `'s Jupiter model accurately. \item[(d)] Solve the inequality from (c) for $r$. \item[(e)] ` examined his `` model, and thought it looked slightly different than when he saw the picture of the real ``. ` measured the dimensions of `` to be @ by @ centimetres. ` found out that the actual `` measured @ by @ meters. Is the `'s model of `` made accurately? Explain. \item[(f)] ` finally realized that it's impossible to make an accurate replica in his room, and decided to just arrange them pretty. ` placed the Sun, the Earth some distance away from the Sun, and Neptune along a straight line with the Sun and the Earth. ` noticed that Neptune was placed @ times as far as the Earth from the Sun. ` also measured the distance between the Earth and Neptune to be @ cm. How far away was the Earth placed from the Sun? \end{itemize}
+11 2
+`=Alex|Jordan|Riley|Morgan|Taylor|Casey
+``=ISS|Skylab|Salyut 6|Mir|
+
+
+# PROBLEM: Grade10MeasurementTrigSlope (Single-part, puzzle-style)
+# CURRICULUM ALIGNMENT (Saskatchewan Foundations of Mathematics and Pre-calculus 10):
+#   - FP10.3g: Converting between the metric and the Imperial system
+#   - FP10.4c: Solving problems using trigonometric ratios
+#   - FP10.5g: Factoring using algebra tiles
+#   - FP10.5k: Factoring a trinomial
+#   - FP10.7h: Given a slope and a point, solving for another point
+#   - FP10.7j: Solving situational problems involving slope
+#
+# RECOMMENDED PARAMETER RANGES: (Parameters outside these range may result in unrealistic numbers):
+#   @1: step size in ft (1-3)
+#   @2: number of steps in the `` (200-300)
+#   @3: angle between flags (20-60)
+#   @4: steps after the `` (50-150)
+#   @5: steps on the ramp (8-12)
+#   @6: altitude of the ramp in m (3-5)
+#   @7: steps after the ramp (50-150)
+#   @8: jump distance in m (5-7)
+#   @9: steps after the jump (30-50)
+# @7 must be at least @5, otherwise the story wouldn't make sense
+
+!Grade10MeasurementTrigSlope
+Deep beneath the Whispering Mountains lies the Labyrinth of Archimedes--a place spoken of only in hushed tones among treasure hunters. It is said that within its depths rest the legendary Golden Algebra Tiles, artifacts of immense mathematical power. Many have sought them. None has returned. \par ` had trained for years for this moment. Among the many skills ` had honed was a peculiar but essential one: walking in precise @-foot steps. "In the labyrinth," `'s mentor had once said, "you must always know exactly how far you've travelled." \par Upon entering the labyrinth's mouth, ` froze. There lay a massive three-headed dog, each head the size of a boulder, sleeping in the center of the main passage. Even in slumber, the beast's breath rumbled like distant thunder. ` was certain: \textit{if it woke, I would be torn to pieces before I could even scream.} \par To `'s left, a dense underground `` of luminescent fungi stretched into darkness. ` pulled a red flag from the pack and planted it firmly at the ``'s edge. "So I don't lose my way," ` muttered, and stepped into the shadows. \par ` walked in a perfectly straight line, counting each step carefully. At @ steps, ` glanced back. The dog was completely out of sight. ` planted a blue flag, sat down on a stone, and allowed themselves a moment to rest. \par But the rest was short-lived. A creeping dread washed over `--something was coming. Something terrible. Without thinking, ` bolted, running perpendicular to the path from which they had come. In panic, ` forgot to count the steps. \par When ` finally burst out of the ``, gasping for breath, the main chamber stretched once more. In the distance, ` could see the sleeping dog and, just beyond it, the red flag marking the entrance. Squinting carefully, ` also spotted the blue flag. ` noticed something useful: the angle between the line toward the red flag and the line toward the blue flag was exactly @ degrees. \par ` pressed onward, walking another @ steps until a stone ramp rose before `'s eyes. ` pulled out an altimeter, set it to 0 meters, and began the ascent. After exactly @ steps, the ground levelled out. ` checked the altimeter: @ meters. \par Another @ steps brought ` to the edge of a churning pool of ```. Across the ```, ` could see solid ground--and what appeared to be the remains of an ancient bridge. The structure had long since crumbled into nothingness. \par "Must I turn back?" ` whispered. \par Then ` noticed a weathered sign, barely legible: \par "This bridge was constructed upon a slope of exactly negative one." \par An idea sparked in `'s mind. ` hurled the altimeter across the ``` pool, watching it clatter onto the stone on the other side. Squinting through the air, ` read the display: 0 meters. ` knew from experience that a running leap could carry ` exactly @ meters. The question now was whether the gap was short enough to cross. \par ` took a deep breath, backed up, and ran. \par \par ` landed safely on the far edge--feet barely catching the stone lip--then what awaited ` after @ more steps was far more unsettling than ```. \par A Sphinx. \par The creature sat motionless, its ancient eyes gleaming with intelligence. When it spoke, the voice echoed from everywhere and nowhere: \par \textit{"Traveller who seeks the golden treasure, answer me this: From the threshold where your journey began to the ground upon which you now stand--what is the distance, as the crow flies, measured in metres?"} \par ` closed the two eyes. In their mind, ` traced the entire journey: the detour through the ``, the angle between the flags, the ramp, the bridge over ```, and these final steps. ` opened their eyes and spoke the answer with confidence. \par The Sphinx said nothing. It simply rose and glided aside, revealing a heavy stone door. \par Beyond the door, bathed in golden light, sat the altar. Upon it rested the legendary Golden Algebra Tiles: \textbf{one} tile shaped like a square, marked $x^2$, \textbf{nine} tiles shaped like rectangles, each marked $x$, and \textbf{twenty} tiles shaped like small squares, each marked $1$. \par `'s heart raced as they lifted the tiles from the altar. \par The moment ` did, the room began to shake. Dust and pebbles rained from above, and when ` looked up, ` saw the ceiling descending--slowly but inevitably--toward the floor. \par ` sprinted toward a far passage and found an exit, but the door was sealed. Carved into its surface were the words: \par \textit{"Arrange the golden tiles into a perfect rectangle with no gaps, and the path shall open."} \par Panic would have claimed a lesser adventurer, but ` forced calm into each breath. ` studied the tiles: $x^2$, $9x$, and $20$. This was a factoring problem. ` needed to find two binomials that, when multiplied together, produced $x^2 + 9x + 20$. If ` could find them, the tiles could be arranged into a rectangle using the area model--and the door would open. \par `'s hands moved quickly, arranging and rearranging, and then--\textit{click}. The tiles fit perfectly. The rectangle was complete. \par The door groaned open. ` dove through just as the ceiling crashed down behind. \par \par That night, safe at last under a starlit sky, ` opened a leather journal and began to write: \par \textit{"Let this record stand as proof of my journey through the Labyrinth of Archimedes. Three things I wish to remember:} \par \textit{First, how I knew I could cross the lava...} \par \textit{Second, the answer I gave to the Sphinx...} \par \textit{Third, the two binomials that saved my life..."} \par \par The question is: \textbf{What did ` write in the diary?}
+9 3
+`=Joseph|Alexa|Martha|Lara|Mathew
+``=forest|cave|grove
+```=lava|poison|acid|spider
+
+
+# PROBLEM: Grade11TrigSequencesQuadratics (Multi-part, 7 parts)
+# CURRICULUM ALIGNMENT (Saskatchewan Pre-calculus 20):
+#   - P20.5e: Applying sine/cosine law to solve triangles
+#   - P20.5g: Considering if sine/cosine laws only work for non-right triangles
+#   - P20.8d: Solving quadratic equations
+#   - P20.8e: Verifying solutions for quadratic equations
+#   - P20.8h: Solving situational problems involving quadratic equations
+#   - P20.10i: Solving situational problems involving geometric series
+#
+# RECOMMENDED PARAMETER RANGES:
+#    @1: helicopter max height in ft (10000-15000)
+#    @2: number of years `` dived for (5-7)
+#    @3: quadratic coefficient for x^2 for (a) (30-35)
+#    @4: quadratic coefficient for x for (a) (1449-1549)
+#    @5: beacon angle of declination (65-75)
+#    @6: destination beacon distance in ft (16000-20000)
+#    @7: quadratic coefficient for x^2 for (f) (50-60)
+#    @8: quadratic coefficient for x for (f) (400-600)
+#    @9: quadratic constant for (f) (3500-7000)
+#    @10: price increase percentage (5-10)
+
+!Grade11TrigSequencesQuadratics
+Sky` is a local company that organizes skydiving experiences. Customers can fly up @ ft into the sky using a helicopter, then jump off with an instructor. `` is a long-time customer who has used their service every year, and this will be his @th year skydiving with them. \begin{itemize} \item[(a)] The helicopter lifts off and flies to the height. The height of the helicopter, $h$, is related to the time after liftoff in minutes, $t$, by the equation $h = -@x^2 + @x$. How long would it take for the helicopter to reach the desired height? \item[(b)] The pilot looked at a beacon, and noted that its angle of declination is $@^\circ$. How far is the beacon from the helicopter? \item[(c)] There is also a beacon where `` is supposed to land, and the pilot measured the distance to it to be @ ft. What is the angle of declination for that beacon? \item[(d)] How far apart are the beacons in (b) and (c)? Use \textbf{cosine law} for your solution. \item[(e)] Identify the right triangles that could be used to solve (d), then solve using them. Could you have applied the sine and/or cosine law to those right triangles? Explain. \item[(f)] As an experienced diver, `` decided to enjoy the speed with a head-first dive. After a while, `` came to the flat position to reduce the speed, then deployed the parachute. The height of `` above the ground, $H$, can be modelled by the quadratic equation $H = -@x^2 + @x + @$, where $T$ is the time in minutes since `` deployed the parachute. How long did it take `` to land on the ground since deploying the parachute? Verify your solution. \item[(g)] Sky` raises their price by @\% every year. How much did `` pay to Sky` so far? \end{itemize}
+10 2
+`=Saskatoon|Regina|PrinceAlbert|MooseJaw|Battleford|
+``=Phoenix|Ash|Rowan|Blair|Drew|Avery
