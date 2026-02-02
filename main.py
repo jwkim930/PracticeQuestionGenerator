@@ -5,7 +5,7 @@ from pylatex import MiniPage
 from random import randint
 
 import classes.problems as problems
-# import classes.problem_preset as preset
+import classes.problem_preset as preset
 from classes.environments import Multicols
 
 
