@@ -11,18 +11,7 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.WordProblem(6, "10cm", "Grade11TrigSequencesQuadratics", [
-        (10000, 15000),
-        (5, 7),
-        (30, 35),
-        (1449, 1549),
-        (65, 75),
-        (16000, 20000),
-        (50, 60),
-        (400, 600),
-        (3500, 7000),
-        (5, 10)
-    ])]
+    [problems.LinearInequalitySystemGraph(100, (-9, 9))]
 ]  # outer list is section, inner list is problems within the section
 prob_names = ["Test"]   # name of each section
 prob_insts = ["Testing"]   # instruction for each section

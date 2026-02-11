@@ -610,15 +610,16 @@ class GraphingProblem(ProblemBase, ABC):
         super().__init__(num_quest, '0cm')
 
     @abstractmethod
-    def get_random_function(self) -> NoEscape:
+    def get_graphable_entity(self) -> NoEscape:
         """
-        Returns a function with randomized parameters.
+        Returns a function, set, etc. with randomized parameters.
+        Note that the output will be enclosed in inline math.
         """
         pass   # child class should implement this
 
     def get_problem(self) -> list[Math | NoEscape | CommandBase]:
         result = [
-            Math(data=["f(x)=", self.get_random_function()], inline=True),
+            Math(data=[self.get_graphable_entity()], inline=True),
             NoEscape("\n"),
             VerticalSpace("2em"),
             NoEscape("\n"),
@@ -659,7 +660,7 @@ class LinearGraphingProblem(GraphingProblem):
         self.num_range = num_range
         self.types = types
 
-    def get_random_function(self):
+    def get_graphable_entity(self):
         prob = choice(self.types)
         result = NoEscape()
 
@@ -705,7 +706,7 @@ class LinearGraphingProblem(GraphingProblem):
                 poly = UnsafePolynomial(a.dumps() + mini_poly.dumps(), Number(k))
                 result = poly.dumps()
 
-        return result
+        return NoEscape("f(x)=" + result)
 
 
 class SquareRootProblem(ProblemBase):
@@ -2459,8 +2460,92 @@ class QuadraticGraphingFactorable(GraphingProblem, FactorPolynomial):
         if not self.types:
             raise ValueError("All the provided problem types are invalid for quadratic graphing")
 
-    def get_random_function(self) -> NoEscape:
-        return self.get_random_polynomial(choice(self.types)).dumps()
+    def get_graphable_entity(self) -> NoEscape:
+        return NoEscape("f(x)=" + self.get_random_polynomial(choice(self.types)).dumps())
+
+
+class LinearInequalityGraph(GraphingProblem):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], set_mode=False):
+        """
+        Initializes a problem to graph one linear inequality.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for generating coefficients and constants, (begin, end) inclusive.
+        :param set_mode: If True, the problem will be given in set notation. In this mode,
+                         the superset may be integer or whole number.
+        """
+        super().__init__(num_quest)
+        if nrange[0] > nrange[1]:
+            raise ValueError("nrange contains no number")
+        self.nrange = nrange
+        self.set_mode = set_mode
+
+    def get_graphable_entity(self) -> NoEscape:
+        ineq = choice(['\\leq', '\\geq', '<', '>'])
+        if self.set_mode:
+            # advanced form: e.g. {(x, y) : 6x + y > 12, x \in I, y \in I}
+            a = randint(self.nrange[0], self.nrange[1])
+            b = randint(self.nrange[0], self.nrange[1])
+            c = randint(self.nrange[0], self.nrange[1])
+            lhs = MultiVariablePolynomial([
+                MultiVariableTerm(a, ('x', 1)),
+                MultiVariableTerm(b, ('y', 1))
+            ]).remove_zeros()
+            nset = choice(["R", "W", "I"])
+            return NoEscape(rf"\left\{{ (x, y) : {lhs.dumps()} {ineq} {c}, x \in {nset}, y \in {nset} \right\}}")
+        else:
+            # simple form: e.g. y < 2x + 3
+            a = randint(self.nrange[0], self.nrange[1])
+            b = randint(self.nrange[0], self.nrange[1])
+            rhs = SingleVariablePolynomial('x', [
+                {'coefficient': a, 'exponent': 1},
+                {'coefficient': b, 'exponent': 0}
+            ]).remove_zeros()
+            return NoEscape(f"y {ineq} {rhs.dumps()}")
+
+
+class LinearInequalitySystemGraph(GraphingProblem):
+    def __init__(self, num_quest: int, nrange: tuple[int, int]):
+        """
+        Initialize a problem where two inequalities needs to be graphed.
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for generating coefficients and constants, (begin, end) inclusive.
+        """
+        super().__init__(num_quest)
+        if nrange[0] > nrange[1]:
+            raise ValueError("nrange contains no number")
+        self.nrange = nrange
+
+    def get_graphable_entity(self) -> NoEscape:
+        a1, b1, c1, a2, b2, c2 = choices(range(self.nrange[0], self.nrange[1] + 1), k=6)
+        ineq1, ineq2 = choices(['\\leq', '\\geq', '>', '<'], k=2)
+        ineq = [ineq1, ineq2]
+        lhs1 = MultiVariablePolynomial([
+            MultiVariableTerm(a1, ('x', 1)),
+            MultiVariableTerm(b1, ('y', 1))
+        ], mix=True).remove_zeros()
+        lhs2 = MultiVariablePolynomial([
+            MultiVariableTerm(a2, ('x', 1)),
+            MultiVariableTerm(b2, ('y', 1))
+        ], mix=True).remove_zeros()
+        lhs = [lhs1, lhs2]
+        rhs = [c1, c2]
+        nset = choice(["R", "I", "W"])
+
+        fmt = r"\begin{aligned} lhs &ineq rhs \\ lhs &ineq rhs \end{aligned}; \, x \in set, y \in set"
+        for i in range(2):
+            if random() < 0.5:
+                # lhs on the left
+                fmt = fmt.replace('lhs', lhs[i].dumps(), count=1)
+                fmt = fmt.replace('ineq', ineq[i], count=1)
+                fmt = fmt.replace('rhs', str(rhs[i]), count=1)
+            else:
+                # rhs on the left
+                fmt = fmt.replace('lhs', str(rhs[i]), count=1)
+                fmt = fmt.replace('ineq', ineq[i], count=1)
+                fmt = fmt.replace('rhs', lhs[i].dumps(), count=1)
+        return NoEscape(fmt.replace('set', nset))
 
 
 class IdentifyGraph(ProblemBase, ABC):
