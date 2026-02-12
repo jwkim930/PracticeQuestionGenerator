@@ -11,7 +11,7 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.LinearInequalitySystemGraph(100, (-9, 9))]
+    [problems.GeneralTrigonometryProblem(100, (5, 10))]
 ]  # outer list is section, inner list is problems within the section
 prob_names = ["Test"]   # name of each section
 prob_insts = ["Testing"]   # instruction for each section

@@ -3215,12 +3215,26 @@ class TrigonometryProblem(ProblemBase):
         self.precision = precision
         self.types = types
 
-    def get_problem(self) -> list[DocInjector]:
-        def draw_length() -> Number:
-            start = int(self.lrange[0].get_signed() * (10**self.precision))
-            end = int(self.lrange[1].get_signed() * (10**self.precision))
-            return Number(Decimal(randint(start, end)) / (10**self.precision))
+    def draw_length(self) -> Number:
+        start = int(self.lrange[0].get_signed() * (10 ** self.precision))
+        end = int(self.lrange[1].get_signed() * (10 ** self.precision))
+        return Number(Decimal(randint(start, end)) / (10 ** self.precision))
 
+    @staticmethod
+    def order_for_inside_angle(p, v, q):
+        """
+        Reorder coordinates so that TikZ draws internal angle.
+        v is the vertex where the angle is at.
+        """
+        px, py = p[0] - v[0], p[1] - v[1]
+        qx, qy = q[0] - v[0], q[1] - v[1]
+        cross = px * qy - py * qx
+        if cross < 0:
+            return q, v, p
+        else:
+            return p, v, q
+
+    def get_problem(self) -> list[DocInjector]:
         def lengths_to_vertices(a: Number, b: Number, c: Number, orientation: int) -> tuple[tuple[Number, Number], tuple[Number, Number], tuple[Number, Number]]:
             """
             :param a: The length of the horizontal leg.
@@ -3258,24 +3272,11 @@ class TrigonometryProblem(ProblemBase):
 
             return A, B, C
 
-        def order_for_inside_angle(p, v, q):
-            """
-            Reorder coordinates so that TikZ draws internal angle.
-            v is the vertex where the angle is at.
-            """
-            px, py = p[0] - v[0], p[1] - v[1]
-            qx, qy = q[0] - v[0], q[1] - v[1]
-            cross = px * qy - py * qx
-            if cross < 0:
-                return q, v, p
-            else:
-                return p, v, q
-
         # Set up problem parameters
         prob_type = choice(self.types)
         unit = choice(self.units)
         angle = randint(self.arange[0], self.arange[1])
-        length = draw_length()
+        length = self.draw_length()
         if prob_type in ["angle_sin", "side_sin", "hyp_sin"]:
             # need opposite and hypotenuse
             c = length
@@ -3306,12 +3307,12 @@ class TrigonometryProblem(ProblemBase):
             # need two legs
             if random() < 0.5:
                 # a is adjacent
-                a = draw_length()
+                a = self.draw_length()
                 angle_name = "B"
                 b = TrigonometryProblem.round_to(a * Number(math.tan(angle * math.pi / 180)), self.precision)
             else:
                 # b is adjacent
-                b = draw_length()
+                b = self.draw_length()
                 angle_name = "A"
                 a = TrigonometryProblem.round_to(b * Number(math.tan(angle * math.pi / 180)), self.precision)
             c = TrigonometryProblem.round_to(Number(math.sqrt(a.get_signed()**2 + b.get_signed()**2)), self.precision)
@@ -3360,7 +3361,7 @@ class TrigonometryProblem(ProblemBase):
                 # Angle at the angle
                 the_angle = vertex_name_reverse[angle_name]
                 other1, other2 = tuple([ngle for ngle in [A, B, C] if ngle is not the_angle])
-                order = [vertex_name[v] for v in order_for_inside_angle(other1, the_angle, other2)]
+                order = [vertex_name[v] for v in self.order_for_inside_angle(other1, the_angle, other2)]
                 angle_text = "?" if prob_type in ['angle_sin', 'angle_cos', 'angle_tan'] else rf"{angle}^\circ"
                 tikz.append(NoEscape(r'\path pic["${}$", draw=black, angle radius=6mm, angle eccentricity=1.5]{{angle={}--{}--{}}};'.format(angle_text, *order)))
 
@@ -3416,6 +3417,315 @@ class TrigonometryProblem(ProblemBase):
                 tikz.append(NoEscape(rf'\draw ($(B)!0.5!(C)$) node[{side_label_placements[0]}] {{{a_text}}};'))
                 tikz.append(NoEscape(rf'\draw ($(C)!0.5!(A)$) node[{side_label_placements[1]}] {{{b_text}}};'))
                 tikz.append(NoEscape(rf'\draw ($(A)!0.5!(B)$) node[{side_label_placements[2]}] {{{c_text}}};'))
+
+        self.num_quest -= 1
+        return [DocInjector(draw_triangle)]
+
+
+class GeneralTrigonometryProblem(TrigonometryProblem):
+    def __init__(self, num_quest: int, lrange: tuple[NumberArgument, NumberArgument], *types: str,
+                 arange: tuple[int, int] = (10, 80), units: tuple[str] = ('cm',),
+                 precision: int = 1, obtuse=False):
+        """
+        Initializes a problem where triangles are solved using sine or cosine laws.
+
+        Possible problem types:
+         - aas: angle angle side
+         - asa: angle side angle
+         - ssa_unamb: side side angle, one possible triangle
+         - ssa_amb: side side angle, two possible triangles
+         - ssa_none: side side angle, no possible triangle
+         - sas: side angle side
+         - sss: all sides known
+
+        :param num_quest: The number of questions to be generated.
+        :param lrange: The range used for the lengths in the triangle, (begin, end) inclusive.
+        :param types: The problem types to be used. One will be drawn from this for each question.
+                      If omitted, all types will be available.
+        :param arange: The range used for the known angle (in degrees) in the triangle, (begin, end) inclusive.
+                       The widest range is (10, 80) (default value). If any of the bounds go beyond these,
+                       they will be shrunken down to fit within this range.
+        :param units: The units of length to be used. One problem will only use one unit.
+        :param precision: The precision of the lengths. 0 means whole number, 1 means first decimal place, etc.
+        :param obtuse: If True, obtuse triangles may be created when possible. The angle is generated by
+                       generating a number from arange and adding 90.
+        """
+        super().__init__(num_quest, lrange, arange=arange, units=units, precision=precision)
+
+        possible_types = (
+            'aas',
+            'asa',
+            'ssa_unamb',
+            'ssa_amb',
+            'ssa_none',
+            'sas',
+            'sss'
+        )
+        if not types:
+            self.types = possible_types
+        else:
+            for t in types:
+                if t not in possible_types:
+                    raise ValueError(f"problem type {t} is not valid")
+            self.types = types
+        self.obtuse = obtuse
+        # below are used in get_problem()
+        self.all_sides = {}
+        self.known_sides = {}
+        self.unknown_sides = {}
+        self.all_angles = {}
+        self.known_angles = {}
+        self.unknown_angles = {}
+
+    def get_problem(self) -> list[DocInjector]:
+        # reset contexts from previous run
+        self.all_sides = {}
+        self.known_sides = {}
+        self.unknown_sides = {}
+        self.all_angles = {}
+        self.known_angles = {}
+        self.unknown_angles = {}
+
+        prob_type = choice(self.types)
+        unit = choice(self.units)
+
+        if prob_type in ('ssa_amb', 'ssa_none'):
+            if prob_type in ('ssa_amb', 'ssa_none'):
+                # angle A is known and acute, sides a and b are known
+                A_deg = randint(self.arange[0], self.arange[1])
+                b = self.draw_length()
+                h = b.get_signed() * Decimal(math.sin(math.radians(A_deg)))
+
+                if prob_type == 'ssa_none':
+                    # redraw until we get a < b*sin(A) with a comfortable margin
+                    a = Number(0)
+                    for _ in range(100):
+                        A_deg = randint(self.arange[0], self.arange[1])
+                        sin_A = Decimal(math.sin(math.radians(A_deg)))
+                        b = self.draw_length()
+                        h = b.get_signed() * sin_A
+
+                        # a must be < h and within lrange, with a decent gap
+                        max_a = self.round_to(Number(h * Decimal('0.8')), self.precision, -1)
+                        if max_a.get_signed() < self.lrange[0].get_signed():
+                            continue
+
+                        a_start = int(self.lrange[0].get_signed() * (10 ** self.precision))
+                        a_end = int(max_a.get_signed() * (10 ** self.precision))
+                        if a_end < a_start:
+                            continue
+
+                        a = Number(Decimal(randint(a_start, a_end)) / (10 ** self.precision))
+                        break
+                    if a == 0:
+                        # force something reasonable
+                        a = self.lrange[0]
+
+                    # for drawing: use a_display = b to get a valid acute triangle
+                    a_display = b
+                    sin_B_display = b.get_signed() * sin_A / a_display.get_signed()
+                    sin_B_display = min(sin_B_display, Decimal(1))
+                    B_deg = round(math.degrees(math.asin(float(sin_B_display))))
+                    C_deg = 180 - A_deg - B_deg
+                    c = a_display * Number(math.sin(math.radians(C_deg)) / math.sin(math.radians(A_deg)))
+
+                    self.all_sides['a'] = a_display
+                    self.all_sides['b'] = b
+                    self.all_sides['c'] = c
+                    self.all_angles['A'] = A_deg
+                    self.all_angles['B'] = B_deg
+                    self.all_angles['C'] = C_deg
+
+                    self.known_angles['A'] = A_deg
+                    self.known_sides['a'] = a  # true impossible value
+                    self.known_sides['b'] = b
+                else:  # ssa_amb
+                    # h < a < b, two possible triangles
+                    min_a = self.round_to(Number(h), self.precision, 1)
+                    max_a = self.round_to(b, self.precision, -1)
+                    start = int(min_a.get_signed() * (10 ** self.precision))
+                    end = int(max_a.get_signed() * (10 ** self.precision))
+                    if end <= start:
+                        a = min_a
+                    else:
+                        a = Number(Decimal(randint(start, end)) / (10 ** self.precision))
+
+                    # use the acute B solution for drawing
+                    sin_B = b.get_signed() * Decimal(math.sin(math.radians(A_deg))) / a.get_signed()
+                    sin_B = min(sin_B, Decimal(1))
+                    B_deg = round(math.degrees(math.asin(float(sin_B))))
+                    C_deg = 180 - A_deg - B_deg
+                    c = a * Number(math.sin(math.radians(C_deg)) / math.sin(math.radians(A_deg)))
+
+                    self.all_sides['a'] = a
+                    self.all_sides['b'] = b
+                    self.all_sides['c'] = c
+                    self.all_angles['A'] = A_deg
+                    self.all_angles['B'] = B_deg
+                    self.all_angles['C'] = C_deg
+
+                    self.known_angles['A'] = A_deg
+                    self.known_sides['a'] = a
+                    self.known_sides['b'] = b
+        else:
+            # generate a valid random triangle
+            A_deg = randint(self.arange[0], self.arange[1])
+            B_deg = randint(self.arange[0], self.arange[1])   # this may be obtuse
+            if self.obtuse and random() < 0.5:
+                B_deg += 90
+            while A_deg + B_deg > 180 - self.arange[0]:
+                A_deg = randint(self.arange[0], self.arange[1])
+                B_deg = randint(self.arange[0], self.arange[1])
+                if self.obtuse and random() < 0.5:
+                    B_deg += 90
+            C_deg = 180 - A_deg - B_deg
+
+            # pick one side freely, derive the rest via sine rule
+            a = self.draw_length()
+            b = a * Number(math.sin(math.radians(B_deg)) / math.sin(math.radians(A_deg)))
+            c = a * Number(math.sin(math.radians(C_deg)) / math.sin(math.radians(A_deg)))
+
+            self.all_sides['a'] = a
+            self.all_sides['b'] = b
+            self.all_sides['c'] = c
+            self.all_angles['A'] = A_deg
+            self.all_angles['B'] = B_deg
+            self.all_angles['C'] = C_deg
+
+            # decide known/unknown based on problem type
+            match prob_type:
+                case 'aas':
+                    # angles A, B known; side a known
+                    self.known_angles['A'] = A_deg
+                    self.known_angles['B'] = B_deg
+                    self.known_sides['a'] = a
+                    self.unknown_angles['C'] = C_deg
+                    self.unknown_sides['b'] = b
+                    self.unknown_sides['c'] = c
+                case 'asa':
+                    # angles A, B known; side c known
+                    self.known_angles['A'] = A_deg
+                    self.known_angles['B'] = B_deg
+                    self.known_sides['c'] = c
+                    self.unknown_angles['C'] = C_deg
+                    self.unknown_sides['a'] = a
+                    self.unknown_sides['b'] = b
+                case 'ssa_unamb':
+                    # angle A known, sides a and b known, a >= b makes unambiguous
+                    # swap if needed so a >= b
+                    if a.get_signed() < b.get_signed():
+                        a, b = b, a
+                        A_deg, B_deg = B_deg, A_deg
+                    self.known_angles['A'] = A_deg
+                    self.known_sides['a'] = a
+                    self.known_sides['b'] = b
+                    self.unknown_angles['B'] = B_deg
+                    self.unknown_angles['C'] = C_deg
+                    self.unknown_sides['c'] = c
+                case 'sas':
+                    # sides a, b known; angle C known
+                    self.known_angles['C'] = C_deg
+                    self.known_sides['a'] = a
+                    self.known_sides['b'] = b
+                    self.unknown_angles['A'] = A_deg
+                    self.unknown_angles['B'] = B_deg
+                    self.unknown_sides['c'] = c
+                case 'sss':
+                    self.known_sides['a'] = a
+                    self.known_sides['b'] = b
+                    self.known_sides['c'] = c
+                    self.unknown_angles['A'] = A_deg
+                    self.unknown_angles['B'] = B_deg
+                    self.unknown_angles['C'] = C_deg
+
+        def triangle_vertices(a_len: Number, b_len: Number, C_angle_deg: int):
+            c_val = math.sqrt(a_len.get_signed() ** 2 + b_len.get_signed() ** 2
+                              - 2 * a_len.get_signed() * b_len.get_signed() * Decimal(math.cos(math.radians(C_angle_deg))))
+            max_side = max(a_len.get_signed(), b_len.get_signed(), c_val)
+            factor = 4.0 / float(max_side)
+
+            a_s = float(a_len.get_signed()) * factor
+            b_s = float(b_len.get_signed()) * factor
+
+            C_pt = (Number(0), Number(0))
+            B_pt = (Number(Decimal(str(round(a_s, 4)))), Number(0))
+            A_x = b_s * math.cos(math.radians(C_angle_deg))
+            A_y = b_s * math.sin(math.radians(C_angle_deg))
+            A_pt = (Number(Decimal(str(round(A_x, 4)))), Number(Decimal(str(round(A_y, 4)))))
+            return A_pt, B_pt, C_pt
+
+        def draw_triangle(doc: Document):
+            A_pt, B_pt, C_pt = triangle_vertices(self.all_sides['a'], self.all_sides['b'], self.all_angles['C'])
+            vertices = {'A': A_pt, 'B': B_pt, 'C': C_pt}
+            str_pt = lambda t: '(' + ','.join([n.dumps() for n in t]) + ')'
+
+            with doc.create(TikZ()) as tikz:
+                for name, pt in vertices.items():
+                    tikz.append(NoEscape(rf'\coordinate ({name}) at {str_pt(pt)};'))
+
+                tikz.append(NoEscape(r'\draw (A) -- (B) -- (C) -- cycle;'))
+
+                cx = sum(pt[0].get_signed() for pt in vertices.values()) / 3
+                cy = sum(pt[1].get_signed() for pt in vertices.values()) / 3
+                for name, pt in vertices.items():
+                    dx = pt[0].get_signed() - cx
+                    dy = pt[1].get_signed() - cy
+                    if abs(dx) > abs(dy):
+                        placement = "right" if dx > 0 else "left"
+                    else:
+                        placement = "above" if dy > 0 else "below"
+                    tikz.append(NoEscape(rf'\node[{placement}] at ({name}) {{${name}$}};'))
+
+                for ang_name, ang_val in self.known_angles.items():
+                    v = vertices[ang_name]
+                    others = [vertices[n] for n in vertices if n != ang_name]
+                    order = self.order_for_inside_angle(others[0], v, others[1])
+                    order_names = []
+                    for pt in order:
+                        for n, p in vertices.items():
+                            if p is pt:
+                                order_names.append(n)
+                                break
+                    tikz.append(NoEscape(
+                        r'\path pic["${}^\circ$", draw=black, angle radius=6mm, angle eccentricity=1.5]{{angle={}--{}--{}}};'.format(
+                            ang_val, *order_names)))
+
+                side_endpoints = {'a': ('B', 'C'), 'b': ('A', 'C'), 'c': ('A', 'B')}
+                for side_name, (p1, p2) in side_endpoints.items():
+                    if side_name in self.known_sides:
+                        label = f"${self.round_to(self.known_sides[side_name], self.precision)}$ {unit}"
+                    else:
+                        label = ""
+                    if label:
+                        # Find the vertex opposite this side
+                        opposite = [n for n in ('A', 'B', 'C') if n != p1 and n != p2][0]
+                        opp_pt = vertices[opposite]
+
+                        # Side direction vector
+                        sx = vertices[p2][0].get_signed() - vertices[p1][0].get_signed()
+                        sy = vertices[p2][1].get_signed() - vertices[p1][1].get_signed()
+
+                        # Outward normal: perpendicular to side, pointing away from opposite vertex
+                        # Two candidate normals: (sy, -sx) and (-sy, sx)
+                        mid_x = (vertices[p1][0].get_signed() + vertices[p2][0].get_signed()) / 2
+                        mid_y = (vertices[p1][1].get_signed() + vertices[p2][1].get_signed()) / 2
+                        # Vector from midpoint to opposite vertex
+                        to_opp_x = float(opp_pt[0].get_signed() - mid_x)
+                        to_opp_y = float(opp_pt[1].get_signed() - mid_y)
+
+                        # Pick the normal that points AWAY from the opposite vertex
+                        nx, ny = float(sy), float(-sx)
+                        if nx * to_opp_x + ny * to_opp_y > 0:
+                            nx, ny = -nx, -ny
+
+                        # Convert outward normal to a placement keyword
+                        if abs(nx) > abs(ny):
+                            placement = "right" if nx > 0 else "left"
+                        else:
+                            placement = "above" if ny > 0 else "below"
+
+                        tikz.append(NoEscape(
+                            rf'\draw ($({p1})!0.5!({p2})$) node[{placement}] {{{label}}};'))
 
         self.num_quest -= 1
         return [DocInjector(draw_triangle)]
