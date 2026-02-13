@@ -3470,21 +3470,21 @@ class GeneralTrigonometryProblem(TrigonometryProblem):
             self.types = types
         self.obtuse = obtuse
         # below are used in get_problem()
-        self.all_sides = {}
-        self.known_sides = {}
-        self.unknown_sides = {}
-        self.all_angles = {}
-        self.known_angles = {}
-        self.unknown_angles = {}
+        self._all_sides = {}
+        self._known_sides = {}
+        self._unknown_sides = {}
+        self._all_angles = {}
+        self._known_angles = {}
+        self._unknown_angles = {}
 
     def get_problem(self) -> list[DocInjector]:
         # reset contexts from previous run
-        self.all_sides = {}
-        self.known_sides = {}
-        self.unknown_sides = {}
-        self.all_angles = {}
-        self.known_angles = {}
-        self.unknown_angles = {}
+        self._all_sides = {}
+        self._known_sides = {}
+        self._unknown_sides = {}
+        self._all_angles = {}
+        self._known_angles = {}
+        self._unknown_angles = {}
 
         prob_type = choice(self.types)
         unit = choice(self.units)
@@ -3521,24 +3521,23 @@ class GeneralTrigonometryProblem(TrigonometryProblem):
                         # force something reasonable
                         a = self.lrange[0]
 
-                    # for drawing: use a_display = b to get a valid acute triangle
-                    a_display = b
+                    # for drawing: use a_display = b*sin(A)*1.1 to get a valid acute triangle
+                    a_display = b * sin_A * Decimal('1.1')
                     sin_B_display = b.get_signed() * sin_A / a_display.get_signed()
-                    sin_B_display = min(sin_B_display, Decimal(1))
                     B_deg = round(math.degrees(math.asin(float(sin_B_display))))
                     C_deg = 180 - A_deg - B_deg
                     c = a_display * Number(math.sin(math.radians(C_deg)) / math.sin(math.radians(A_deg)))
 
-                    self.all_sides['a'] = a_display
-                    self.all_sides['b'] = b
-                    self.all_sides['c'] = c
-                    self.all_angles['A'] = A_deg
-                    self.all_angles['B'] = B_deg
-                    self.all_angles['C'] = C_deg
+                    self._all_sides['a'] = a_display
+                    self._all_sides['b'] = b
+                    self._all_sides['c'] = c
+                    self._all_angles['A'] = A_deg
+                    self._all_angles['B'] = B_deg
+                    self._all_angles['C'] = C_deg
 
-                    self.known_angles['A'] = A_deg
-                    self.known_sides['a'] = a  # true impossible value
-                    self.known_sides['b'] = b
+                    self._known_angles['A'] = A_deg
+                    self._known_sides['a'] = a  # true impossible value
+                    self._known_sides['b'] = b
                 else:  # ssa_amb
                     # h < a < b, two possible triangles
                     min_a = self.round_to(Number(h), self.precision, 1)
@@ -3552,21 +3551,20 @@ class GeneralTrigonometryProblem(TrigonometryProblem):
 
                     # use the acute B solution for drawing
                     sin_B = b.get_signed() * Decimal(math.sin(math.radians(A_deg))) / a.get_signed()
-                    sin_B = min(sin_B, Decimal(1))
                     B_deg = round(math.degrees(math.asin(float(sin_B))))
                     C_deg = 180 - A_deg - B_deg
                     c = a * Number(math.sin(math.radians(C_deg)) / math.sin(math.radians(A_deg)))
 
-                    self.all_sides['a'] = a
-                    self.all_sides['b'] = b
-                    self.all_sides['c'] = c
-                    self.all_angles['A'] = A_deg
-                    self.all_angles['B'] = B_deg
-                    self.all_angles['C'] = C_deg
+                    self._all_sides['a'] = a
+                    self._all_sides['b'] = b
+                    self._all_sides['c'] = c
+                    self._all_angles['A'] = A_deg
+                    self._all_angles['B'] = B_deg
+                    self._all_angles['C'] = C_deg
 
-                    self.known_angles['A'] = A_deg
-                    self.known_sides['a'] = a
-                    self.known_sides['b'] = b
+                    self._known_angles['A'] = A_deg
+                    self._known_sides['a'] = a
+                    self._known_sides['b'] = b
         else:
             # generate a valid random triangle
             A_deg = randint(self.arange[0], self.arange[1])
@@ -3585,60 +3583,65 @@ class GeneralTrigonometryProblem(TrigonometryProblem):
             b = a * Number(math.sin(math.radians(B_deg)) / math.sin(math.radians(A_deg)))
             c = a * Number(math.sin(math.radians(C_deg)) / math.sin(math.radians(A_deg)))
 
-            self.all_sides['a'] = a
-            self.all_sides['b'] = b
-            self.all_sides['c'] = c
-            self.all_angles['A'] = A_deg
-            self.all_angles['B'] = B_deg
-            self.all_angles['C'] = C_deg
+            self._all_sides['a'] = a
+            self._all_sides['b'] = b
+            self._all_sides['c'] = c
+            self._all_angles['A'] = A_deg
+            self._all_angles['B'] = B_deg
+            self._all_angles['C'] = C_deg
 
             # decide known/unknown based on problem type
             match prob_type:
                 case 'aas':
                     # angles A, B known; side a known
-                    self.known_angles['A'] = A_deg
-                    self.known_angles['B'] = B_deg
-                    self.known_sides['a'] = a
-                    self.unknown_angles['C'] = C_deg
-                    self.unknown_sides['b'] = b
-                    self.unknown_sides['c'] = c
+                    self._known_angles['A'] = A_deg
+                    self._known_angles['B'] = B_deg
+                    self._known_sides['a'] = a
+                    self._unknown_angles['C'] = C_deg
+                    self._unknown_sides['b'] = b
+                    self._unknown_sides['c'] = c
                 case 'asa':
                     # angles A, B known; side c known
-                    self.known_angles['A'] = A_deg
-                    self.known_angles['B'] = B_deg
-                    self.known_sides['c'] = c
-                    self.unknown_angles['C'] = C_deg
-                    self.unknown_sides['a'] = a
-                    self.unknown_sides['b'] = b
+                    self._known_angles['A'] = A_deg
+                    self._known_angles['B'] = B_deg
+                    self._known_sides['c'] = c
+                    self._unknown_angles['C'] = C_deg
+                    self._unknown_sides['a'] = a
+                    self._unknown_sides['b'] = b
                 case 'ssa_unamb':
                     # angle A known, sides a and b known, a >= b makes unambiguous
                     # swap if needed so a >= b
                     if a.get_signed() < b.get_signed():
                         a, b = b, a
                         A_deg, B_deg = B_deg, A_deg
-                    self.known_angles['A'] = A_deg
-                    self.known_sides['a'] = a
-                    self.known_sides['b'] = b
-                    self.unknown_angles['B'] = B_deg
-                    self.unknown_angles['C'] = C_deg
-                    self.unknown_sides['c'] = c
+                    self._all_sides['a'] = a
+                    self._all_sides['b'] = b
+                    self._all_angles['A'] = A_deg
+                    self._all_angles['B'] = B_deg
+                    self._known_angles['A'] = A_deg
+                    self._known_sides['a'] = a
+                    self._known_sides['b'] = b
+                    self._unknown_angles['B'] = B_deg
+                    self._unknown_angles['C'] = C_deg
+                    self._unknown_sides['c'] = c
                 case 'sas':
                     # sides a, b known; angle C known
-                    self.known_angles['C'] = C_deg
-                    self.known_sides['a'] = a
-                    self.known_sides['b'] = b
-                    self.unknown_angles['A'] = A_deg
-                    self.unknown_angles['B'] = B_deg
-                    self.unknown_sides['c'] = c
+                    self._known_angles['C'] = C_deg
+                    self._known_sides['a'] = a
+                    self._known_sides['b'] = b
+                    self._unknown_angles['A'] = A_deg
+                    self._unknown_angles['B'] = B_deg
+                    self._unknown_sides['c'] = c
                 case 'sss':
-                    self.known_sides['a'] = a
-                    self.known_sides['b'] = b
-                    self.known_sides['c'] = c
-                    self.unknown_angles['A'] = A_deg
-                    self.unknown_angles['B'] = B_deg
-                    self.unknown_angles['C'] = C_deg
+                    self._known_sides['a'] = a
+                    self._known_sides['b'] = b
+                    self._known_sides['c'] = c
+                    self._unknown_angles['A'] = A_deg
+                    self._unknown_angles['B'] = B_deg
+                    self._unknown_angles['C'] = C_deg
 
         def triangle_vertices(a_len: Number, b_len: Number, C_angle_deg: int):
+            """Determine the vertex coordinates given triangle parameters."""
             c_val = math.sqrt(a_len.get_signed() ** 2 + b_len.get_signed() ** 2
                               - 2 * a_len.get_signed() * b_len.get_signed() * Decimal(math.cos(math.radians(C_angle_deg))))
             max_side = max(a_len.get_signed(), b_len.get_signed(), c_val)
@@ -3648,35 +3651,32 @@ class GeneralTrigonometryProblem(TrigonometryProblem):
             b_s = float(b_len.get_signed()) * factor
 
             C_pt = (Number(0), Number(0))
-            B_pt = (Number(Decimal(str(round(a_s, 4)))), Number(0))
+            B_pt = (Number(a_s), Number(0))
             A_x = b_s * math.cos(math.radians(C_angle_deg))
             A_y = b_s * math.sin(math.radians(C_angle_deg))
-            A_pt = (Number(Decimal(str(round(A_x, 4)))), Number(Decimal(str(round(A_y, 4)))))
+            A_pt = (Number(A_x), Number(A_y))
             return A_pt, B_pt, C_pt
 
         def draw_triangle(doc: Document):
-            A_pt, B_pt, C_pt = triangle_vertices(self.all_sides['a'], self.all_sides['b'], self.all_angles['C'])
+            A_pt, B_pt, C_pt = triangle_vertices(self._all_sides['a'], self._all_sides['b'], self._all_angles['C'])
             vertices = {'A': A_pt, 'B': B_pt, 'C': C_pt}
             str_pt = lambda t: '(' + ','.join([n.dumps() for n in t]) + ')'
 
             with doc.create(TikZ()) as tikz:
                 for name, pt in vertices.items():
+                    # define vertices
                     tikz.append(NoEscape(rf'\coordinate ({name}) at {str_pt(pt)};'))
 
+                # draw the sides
                 tikz.append(NoEscape(r'\draw (A) -- (B) -- (C) -- cycle;'))
 
-                cx = sum(pt[0].get_signed() for pt in vertices.values()) / 3
-                cy = sum(pt[1].get_signed() for pt in vertices.values()) / 3
-                for name, pt in vertices.items():
-                    dx = pt[0].get_signed() - cx
-                    dy = pt[1].get_signed() - cy
-                    if abs(dx) > abs(dy):
-                        placement = "right" if dx > 0 else "left"
-                    else:
-                        placement = "above" if dy > 0 else "below"
-                    tikz.append(NoEscape(rf'\node[{placement}] at ({name}) {{${name}$}};'))
+                # place angle name labels
+                tikz.append(NoEscape(r'\node[above] at (A) {$A$};'))
+                tikz.append(NoEscape(r'\node[right] at (B) {$B$};'))
+                tikz.append(NoEscape(r'\node[left] at (C) {$C$};'))
 
-                for ang_name, ang_val in self.known_angles.items():
+                # place angle size labels
+                for ang_name, ang_val in self._known_angles.items():
                     v = vertices[ang_name]
                     others = [vertices[n] for n in vertices if n != ang_name]
                     order = self.order_for_inside_angle(others[0], v, others[1])
@@ -3690,42 +3690,27 @@ class GeneralTrigonometryProblem(TrigonometryProblem):
                         r'\path pic["${}^\circ$", draw=black, angle radius=6mm, angle eccentricity=1.5]{{angle={}--{}--{}}};'.format(
                             ang_val, *order_names)))
 
+                # place the length labels
                 side_endpoints = {'a': ('B', 'C'), 'b': ('A', 'C'), 'c': ('A', 'B')}
                 for side_name, (p1, p2) in side_endpoints.items():
-                    if side_name in self.known_sides:
-                        label = f"${self.round_to(self.known_sides[side_name], self.precision)}$ {unit}"
+                    if side_name in self._known_sides:
+                        label = f"${self.round_to(self._known_sides[side_name], self.precision)}$ {unit}"
                     else:
                         label = ""
                     if label:
-                        # Find the vertex opposite this side
-                        opposite = [n for n in ('A', 'B', 'C') if n != p1 and n != p2][0]
-                        opp_pt = vertices[opposite]
-
-                        # Side direction vector
-                        sx = vertices[p2][0].get_signed() - vertices[p1][0].get_signed()
-                        sy = vertices[p2][1].get_signed() - vertices[p1][1].get_signed()
-
-                        # Outward normal: perpendicular to side, pointing away from opposite vertex
-                        # Two candidate normals: (sy, -sx) and (-sy, sx)
-                        mid_x = (vertices[p1][0].get_signed() + vertices[p2][0].get_signed()) / 2
-                        mid_y = (vertices[p1][1].get_signed() + vertices[p2][1].get_signed()) / 2
-                        # Vector from midpoint to opposite vertex
-                        to_opp_x = float(opp_pt[0].get_signed() - mid_x)
-                        to_opp_y = float(opp_pt[1].get_signed() - mid_y)
-
-                        # Pick the normal that points AWAY from the opposite vertex
-                        nx, ny = float(sy), float(-sx)
-                        if nx * to_opp_x + ny * to_opp_y > 0:
-                            nx, ny = -nx, -ny
-
-                        # Convert outward normal to a placement keyword
-                        if abs(nx) > abs(ny):
-                            placement = "right" if nx > 0 else "left"
+                        if side_name == 'a':
+                            placement = 'below'
+                        elif side_name == 'b':
+                            if self._all_angles['C'] > 90:
+                                placement = 'below left'
+                            else:
+                                placement = 'above left'
                         else:
-                            placement = "above" if ny > 0 else "below"
-
-                        tikz.append(NoEscape(
-                            rf'\draw ($({p1})!0.5!({p2})$) node[{placement}] {{{label}}};'))
+                            if self._all_angles['B'] > 90:
+                                placement = 'below right'
+                            else:
+                                placement = 'above right'
+                        tikz.append(NoEscape(rf'\draw ($({p1})!0.5!({p2})$) node [{placement}] {{{label}}};'))
 
         self.num_quest -= 1
         return [DocInjector(draw_triangle)]
