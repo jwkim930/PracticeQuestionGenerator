@@ -669,14 +669,7 @@ class LinearGraphingProblem(GraphingProblem):
             a = randint(self.num_range[0], self.num_range[1])
             while a == 0:
                 a = randint(self.num_range[0], self.num_range[1])
-
-            # wrap in BaseMathClass for the dumps() call later
-            if a == -1:
-                a = TextWrapper(["-"])
-            elif a == 1:
-                a = TextWrapper()
-            else:
-                a = Number(a)
+            a = Number(a)
         else:
             # a is fraction
             a = Fraction(1, 1)
@@ -692,7 +685,10 @@ class LinearGraphingProblem(GraphingProblem):
         match prob:
             case "si":
                 b = randint(self.num_range[0], self.num_range[1])
-                poly = UnsafePolynomial(a.dumps() + "x", Number(b))
+                poly = SingleVariablePolynomial('x', [
+                    {'coefficient': a, 'exponent': 1},
+                    {'coefficient': b, 'exponent': 0}
+                ]).remove_zeros()
                 result = poly.dumps()
             case "sp":
                 h = randint(self.num_range[0], self.num_range[1])
@@ -702,8 +698,13 @@ class LinearGraphingProblem(GraphingProblem):
                 mini_poly = SingleVariablePolynomial("x", [
                     {"coefficient": 1, "exponent": 1},
                     {"coefficient": -h, "exponent": 0}
-                ], wrap=True)
-                poly = UnsafePolynomial(a.dumps() + mini_poly.dumps(), Number(k))
+                ], wrap=True).remove_zeros()
+                if len(mini_poly) <= 1:
+                    mini_poly.wrap = False
+                poly = SingleVariablePolynomial(mini_poly.dumps(), [
+                    {'coefficient': a, 'exponent': 1},
+                    {'coefficient': k, 'exponent': 0}
+                ]).remove_zeros()
                 result = poly.dumps()
 
         return NoEscape("f(x)=" + result)
