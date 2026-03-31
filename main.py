@@ -11,10 +11,10 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.LinearGraphingProblem(5, (-5, 5), 'si')]
+    [problems.RadicalEquationProblem(100, (-9, 9))]
 ]  # outer list is section, inner list is problems within the section
-prob_names = ["Linear Relation"]   # name of each section
-prob_insts = [preset.graphing_instruction]   # instruction for each section
+prob_names = ["Test"]   # name of each section
+prob_insts = ["Solve the following triangles."]   # instruction for each section
 prob_cols = [1]   # number of columns for each section
 # If mix_up is True, questions are generated in mixed order for that section.
 mix_up = [False]

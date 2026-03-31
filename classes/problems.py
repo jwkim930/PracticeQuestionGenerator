@@ -3425,7 +3425,7 @@ class TrigonometryProblem(ProblemBase):
 
 class GeneralTrigonometryProblem(TrigonometryProblem):
     def __init__(self, num_quest: int, lrange: tuple[NumberArgument, NumberArgument], *types: str,
-                 arange: tuple[int, int] = (10, 80), units: tuple[str] = ('cm',),
+                 arange: tuple[int, int] = (10, 80), units: tuple[str, ...] = ('cm',),
                  precision: int = 1, obtuse=False):
         """
         Initializes a problem where triangles are solved using sine or cosine laws.
@@ -3715,3 +3715,161 @@ class GeneralTrigonometryProblem(TrigonometryProblem):
 
         self.num_quest -= 1
         return [DocInjector(draw_triangle)]
+
+
+class RadicalEquationProblem(EquationMultiOperation):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str, var=('x',)):
+        r"""
+        Initializes a problem where an equation involving a radicand must be solved.
+        The randomly generated numbers will never be 0.
+        A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+
+        Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
+         - simple: \sqrt{ax} = b
+         - binomial: \sqrt{ax + b} = c
+         - rad_binomial: a\sqrt{bx} + c = d
+         - trinomial: \sqrt{ax + b} + cx + d = e
+         - quad: \sqrt{x^2 + a} = b
+         - quad_trinomial: \sqrt{ax^2 + bx} + cx = d
+         - bibi: \sqrt{ax + b} = cx + d
+         - biquad: \sqrt{ax + b} = \sqrt{cx^2 + d}
+         - tritri: \sqrt{ax + b} + c = \sqrt{dx + e} + f
+         - biquad_fact: a\sqrt{bx^2 + c} + e = \sqrt{bdx^2 + cd}
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
+        :param types: The types of equations to be used.
+                      Refer to the docstring for the options and the description of each type.
+                      If nothing is given, every type can appear.
+        :param var: The potential variables to be used. The default is just x.
+        """
+        super().__init__(num_quest, nrange, var=var)
+        possible_types = ('simple',
+                          'binomial',
+                          'rad_binomial',
+                          'trinomial',
+                          'quad',
+                          'quad_trinomial',
+                          'bibi',
+                          'biquad',
+                          'tritri',
+                          'biquad_fact')
+
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"The problem type {t} is invalid")
+        if not types:
+            types = possible_types
+
+        self.types = types
+
+    def get_problem(self) -> list[Math]:
+        var = choice(self.var)
+        prob_type = choice(self.types)
+
+        lhs = None
+        rhs = None
+
+        match prob_type:
+            case 'simple':
+                a = self.draw(1, -1)
+                b = self.draw()
+                lhs = TextWrapper([f"\\sqrt{{{Term(var, a, 1).dumps()}}}"])
+                rhs = Number(b)
+            case 'binomial':
+                a = self.draw(1, -1)
+                b, c = self.draws(2)
+                lhs = TextWrapper([f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 1},
+                    {'coefficient': b, 'exponent': 0}
+                ], True).dumps()}}}"])
+                rhs = Number(c)
+            case 'rad_binomial':
+                a, b = self.draws(2, 1, -1)
+                c, d = self.draws(2)
+                lhs = SingleVariablePolynomial(f"\\sqrt{{{Term(var, b, 1).dumps()}}}", [
+                    {'coefficient': a, 'exponent': 1},
+                    {'coefficient': c, 'exponent': 0}
+                ], True)
+                rhs = Number(d)
+            case 'trinomial':
+                a, c = self.draws(2, 1, -1)
+                b, d, e = self.draws(3)
+                lhs = UnsafePolynomial(
+                    f"\\sqrt{{{SingleVariablePolynomial(var, [
+                        {'coefficient': a, 'exponent': 1},
+                        {'coefficient': b, 'exponent': 0}
+                    ], True).dumps()}}}",
+                    Term(var, c, 1),
+                    Number(d),
+                    mix=True
+                )
+                rhs = Number(e)
+            case 'quad':
+                a, b = self.draws(2)
+                lhs = TextWrapper([f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': 1, 'exponent': 2},
+                    {'coefficient': a, 'exponent': 0}
+                ], mix=True).dumps()}}}"])
+                rhs = Number(b)
+            case 'quad_trinomial':
+                a, b, c = self.draws(3, 1, -1)
+                d = self.draw()
+                lhs = UnsafePolynomial(f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 2},
+                    {'coefficient': b, 'exponent': 1}
+                ], mix=True).dumps()}}}", Term(var, c, 1), mix=True)
+                rhs = Number(d)
+            case 'bibi':
+                a, c = self.draws(2, 1, -1)
+                b, d = self.draws(2)
+                lhs = TextWrapper([f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 1},
+                    {'coefficient': b, 'exponent': 0}
+                ], mix=True).dumps()}}}"])
+                rhs = SingleVariablePolynomial(var, [
+                    {'coefficient': c, 'exponent': 1},
+                    {'coefficient': d, 'exponent': 0}
+                ], mix=True)
+            case 'biquad':
+                a, c = self.draws(2, 1, -1)
+                b, d = self.draws(2)
+                lhs = TextWrapper([f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 1},
+                    {'coefficient': b, 'exponent': 0}
+                ], mix=True).dumps()}}}"])
+                rhs = TextWrapper([f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': c, 'exponent': 2},
+                    {'coefficient': d, 'exponent': 0}
+                ], mix=True).dumps()}}}"])
+            case 'tritri':
+                a, d = self.draws(2, 1, -1)
+                b, c, e, f = self.draws(4)
+                lhs = UnsafePolynomial(f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': a, 'exponent': 1},
+                    {'coefficient': b, 'exponent': 0}
+                ], mix=True).dumps()}}}", Number(c), mix=True)
+                rhs = UnsafePolynomial(f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': d, 'exponent': 1},
+                    {'coefficient': e, 'exponent': 0}
+                ], mix=True).dumps()}}}", Number(f), mix=True)
+            case 'biquad_fact':
+                a, b = self.draws(2, 1, -1)
+                c, e = self.draws(2)
+                d = self.draw(1, *range(self.nrange[0], 0))   # d can't be negative
+                lhs = UnsafePolynomial(f"{a}\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': b, 'exponent': 2},
+                    {'coefficient': c, 'exponent': 0}
+                ], mix=True).dumps()}}}", Number(e), mix=True)
+                rhs = TextWrapper([f"\\sqrt{{{SingleVariablePolynomial(var, [
+                    {'coefficient': b * d, 'exponent': 2},
+                    {'coefficient': c * d, 'exponent': 0}
+                ], mix=True).dumps()}}}"])
+
+        if random() < 0.5:
+            result = lhs.get_latex() + ['='] + rhs.get_latex()
+        else:
+            result = rhs.get_latex() + ['='] + lhs.get_latex()
+
+        self.num_quest -= 1
+        return [Math(inline=True, data=result)]

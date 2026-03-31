@@ -11,6 +11,7 @@ graphing_instruction = NoEscape("Sketch a graph of $y = f(x)$ for the following 
 simplify_instruction = NoEscape("Simplify the following expression as much as possible.")
 power_sign_instruction = NoEscape("Determine the sign of the result. If it evaluates to 0 or $\\pm 1$, evaluate it.")
 trig_instruction = NoEscape("Find the missing angle or side marked with a question mark.")
+equation_restriction_instruction = NoEscape("For the following equations, state any restrictions on the variable and solve it.")
 
 trig_length_problems = ('side_sin', 'hyp_sin', 'side_cos', 'hyp_cos', 'side_tan')
 trig_angle_problems = ('angle_sin', 'angle_cos', 'angle_tan')
