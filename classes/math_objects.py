@@ -213,6 +213,7 @@ class Fraction(BaseMathEntity):
         d = math.gcd(self.num, self.denom)
         return Fraction(abs(self.num // d), abs(self.denom // d), sign=sign, big=self.big, wrap=self.wrap)
 
+
 type NumberArgument = int | float | Decimal | str | Number
 
 

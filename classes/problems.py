@@ -3734,7 +3734,7 @@ class RadicalEquationProblem(EquationMultiOperation):
          - bibi: \sqrt{ax + b} = cx + d
          - biquad: \sqrt{ax + b} = \sqrt{cx^2 + d}
          - tritri: \sqrt{ax + b} + c = \sqrt{dx + e} + f
-         - biquad_fact: a\sqrt{bx^2 + c} + e = \sqrt{bdx^2 + cd}
+         - biquad_fact: a\sqrt{bx^2 + c} + e = \sqrt{b^2dx^2 + cd^2}
 
         :param num_quest: The number of questions to be generated.
         :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
@@ -3856,7 +3856,7 @@ class RadicalEquationProblem(EquationMultiOperation):
             case 'biquad_fact':
                 a, b = self.draws(2, 1, -1)
                 c, e = self.draws(2)
-                d = self.draw(1, *range(self.nrange[0], 0))   # d can't be negative
+                d = self.draw(1, -1) ** 2
                 lhs = UnsafePolynomial(f"{a}\\sqrt{{{SingleVariablePolynomial(var, [
                     {'coefficient': b, 'exponent': 2},
                     {'coefficient': c, 'exponent': 0}
