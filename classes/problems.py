@@ -3873,3 +3873,131 @@ class RadicalEquationProblem(EquationMultiOperation):
 
         self.num_quest -= 1
         return [Math(inline=True, data=result)]
+
+
+class PolynomialReciprocalGraphing(GraphingProblem, EquationMultiOperation):
+    def __init__(self, num_quest: int, nrange: tuple[int, int], *types: str):
+        r"""
+        Initializes a problem where a polynomial reciprocal function must be graphed.
+        The randomly generated numbers will never be 0.
+        A denominator or an explicit coefficient (such as 'a' in ax + b) will never be 1.
+
+        Possible equation types (the variable is always x, the rest are random. The order of terms may be randomized):
+         - linear_simple: \frac{1}{\pm x + a}
+         - linear_fancy: \frac{1}{ax + b}
+         - quad_stand_2: \frac{1}{ax^2 + bx + c}, 2 vertical asymptotes
+         - quad_stand_1: \frac{1}{ax^2 + bx + c}, 1 vertical asymptote
+         - quad_stand_0: \frac{1}{ax^2 + bx + c}, no vertical asymptotes
+         - quad_vert_2: \frac{1}{a(x + b) + c}, 2 vertical asymptotes
+         - quad_vert_1: \frac{1}{a(x + b) + c}, 1 vertical asymptote, c may be 0
+         - quad_vert_0: \frac{1}{a(x + b) + c}, no vertical asymptotes
+
+        :param num_quest: The number of questions to be generated.
+        :param nrange: The range used for the numbers in the equation, (begin, end) inclusive.
+        :param types: The types of equations to be used.
+                      Refer to the docstring for the options and the description of each type.
+                      If nothing is given, every type can appear.
+        """
+        GraphingProblem.__init__(self, num_quest)
+        EquationMultiOperation.__init__(self, num_quest, nrange, var=('x',), inequality=False)
+        self.vspace = '1cm'
+
+        possible_types = (
+            'linear_simple',
+            'linear_fancy',
+            'quad_stand_2',
+            'quad_stand_1',
+            'quad_stand_0',
+            'quad_vert_2',
+            'quad_vert_1',
+            'quad_vert_0'
+        )
+
+        for t in types:
+            if t not in possible_types:
+                raise ValueError(f"The problem type {t} is invalid")
+        if not types:
+            types = possible_types
+        self.types = types
+
+    def get_graphable_entity(self):
+        prob_type = choice(self.types)
+
+        if prob_type == 'linear_simple':
+            denom = SingleVariablePolynomial('x', [
+                {'coefficient': choice([1, -1]), 'exponent': 1},
+                {'coefficient': self.draw(), 'exponent': 0}
+            ], mix=True)
+        elif prob_type == 'linear_fancy':
+            denom = SingleVariablePolynomial('x', [
+                {'coefficient': self.draw(1, -1), 'exponent': 1},
+                {'coefficient': self.draw(), 'exponent': 0}
+            ], mix=True)
+        elif prob_type in [f'quad_stand_{n}' for n in range(3)]:
+            denom = None
+            for _ in range(1000):
+                a, b, c = self.draws(3)
+                dis = b**2 - 4*a*c
+                if prob_type == 'quad_stand_2' and dis > 0:
+                    denom = SingleVariablePolynomial('x', [
+                        {'coefficient': a, 'exponent': 2},
+                        {'coefficient': b, 'exponent': 1},
+                        {'coefficient': c, 'exponent': 0}
+                    ], mix=True)
+                    break
+                elif prob_type == 'quad_stand_1' and dis == 0:
+                    denom = SingleVariablePolynomial('x', [
+                        {'coefficient': a, 'exponent': 2},
+                        {'coefficient': b, 'exponent': 1},
+                        {'coefficient': c, 'exponent': 0}
+                    ], mix=True)
+                    break
+                elif prob_type == 'quad_stand_0' and dis < 0:
+                    denom = SingleVariablePolynomial('x', [
+                        {'coefficient': a, 'exponent': 2},
+                        {'coefficient': b, 'exponent': 1},
+                        {'coefficient': c, 'exponent': 0}
+                    ], mix=True)
+                    break
+            if denom is None:
+                raise ValueError(f'The given nrange cannot seem to generate a {prob_type} problem')
+        elif prob_type in [f'quad_vert_{n}' for n in range(3)]:
+            denom = None
+            for _ in range(100):
+                a, b = self.draws(2)
+                c = randint(self.nrange[0], self.nrange[1])   # c == 0 should be allowed
+                if prob_type == 'quad_vert_2' and a * c < 0:
+                    bracket = SingleVariablePolynomial('x', [
+                        {'coefficient': 1, 'exponent': 1},
+                        {'coefficient': b, 'exponent': 0}
+                    ], wrap=True)
+                    denom = SingleVariablePolynomial(f'{bracket.dumps()}^2', [
+                        {'coefficient': a, 'exponent': 1},
+                        {'coefficient': c, 'exponent': 0}
+                    ]).remove_zeros()
+                    break
+                elif prob_type == 'quad_vert_1' and c == 0:
+                    bracket = SingleVariablePolynomial('x', [
+                        {'coefficient': 1, 'exponent': 1},
+                        {'coefficient': b, 'exponent': 0}
+                    ], wrap=True)
+                    denom = SingleVariablePolynomial(f'{bracket.dumps()}^2', [
+                        {'coefficient': a, 'exponent': 1},
+                        {'coefficient': c, 'exponent': 0}
+                    ]).remove_zeros()
+                    break
+                elif prob_type == 'quad_vert_0' and a * c > 0:
+                    bracket = SingleVariablePolynomial('x', [
+                        {'coefficient': 1, 'exponent': 1},
+                        {'coefficient': b, 'exponent': 0}
+                    ], wrap=True)
+                    denom = SingleVariablePolynomial(f'{bracket.dumps()}^2', [
+                        {'coefficient': a, 'exponent': 1},
+                        {'coefficient': c, 'exponent': 0}
+                    ]).remove_zeros()
+                    break
+            if denom is None:
+                raise ValueError(f'The given nrange cannot seem to generate a {prob_type} problem')
+
+        num = SingleVariablePolynomial(denom.variable, [{'coefficient': 1, 'exponent': 0}])
+        return NoEscape(f"f(x) = {PolynomialFraction(num, denom).dumps()}")

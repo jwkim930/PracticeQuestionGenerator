@@ -11,10 +11,10 @@ from classes.environments import Multicols
 
 # Parameters (edit here)
 probs = [
-    [problems.RadicalEquationProblem(100, (-6, 6), "biquad_fact", var=preset.variables)]
+    [problems.PolynomialReciprocalGraphing(100, (-6, 6))]
 ]  # outer list is section, inner list is problems within the section
 prob_names = ["Test"]   # name of each section
-prob_insts = [preset.equation_instruction]   # instruction for each section
+prob_insts = [preset.graphing_instruction]   # instruction for each section
 prob_cols = [1]   # number of columns for each section
 # If mix_up is True, questions are generated in mixed order for that section.
 mix_up = [False]
